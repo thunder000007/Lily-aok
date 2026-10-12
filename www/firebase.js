@@ -38,7 +38,7 @@ const profileRef = uid => doc(db, "users", uid);
 export async function signUp(email, password, displayName) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   await setDoc(profileRef(cred.user.uid), {
-    uid: cred.user.uid, displayName: displayName.trim(), email: cred.user.email,
+    uid: cred.user.uid, displayName: displayName.trim(),
     bio: "Welcome to my LillyBD profile ✦", photoURL: "", following: [], social: {},
     createdAt: serverTimestamp()
   });
