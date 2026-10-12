@@ -1,30 +1,39 @@
-# LillyBD Firebase upgrade
+# LillyBD Firebase setup
 
-This branch is reserved for the Firebase-backed version of LillyBD. The existing HTML demo is preserved on main.
+The original `main` branch remains unchanged. The `lillybd-firebase-upgrade` branch contains the Firebase integration work.
 
-## Current state
-- Main UI is in LillyBD_Rainbow_Login_Fixed.html.
-- The current app stores accounts, posts, stories, and chats in browser localStorage.
-- Passwords are currently stored in plain text in that local browser storage. Do not use this demo for real accounts.
-- Google sign-in is a placeholder and does not authenticate users.
+## 1. Create Firebase project
+1. Open https://console.firebase.google.com/ and create a project named LillyBD (or use an existing project).
+2. Go to Build → Authentication → Sign-in method and enable **Email/Password**. Enable Google only if you want Google sign-in.
+3. Go to Build → Firestore Database and create a database.
+4. Go to Build → Storage and enable Storage for the project.
+5. In Project settings → Your apps, register a **Web app** and copy its Firebase web configuration.
 
-## Firebase setup needed before wiring the app
-1. Open https://console.firebase.google.com/ and create a project named LillyBD.
-2. In Build → Authentication → Sign-in method, enable Email/Password. Enable Google only if you want Google sign-in.
-3. In Build → Firestore Database, create a database. Start in production mode; do not publish open read/write rules.
-4. In Project settings → Your apps, register a Web app and copy its Firebase web configuration.
-5. Do not create or share a service-account private key. The web configuration is intended for client apps; access must be protected with Authentication and Firestore/Storage Security Rules.
+## 2. Add the web config
+Open `www/firebase.js` on the `lillybd-firebase-upgrade` branch and replace each `PASTE_...` value in `firebaseConfig` with the matching value from the Firebase Web app config:
+- `apiKey`
+- `authDomain`
+- `projectId`
+- `storageBucket`
+- `messagingSenderId`
+- `appId`
 
-## Planned app data
-- users/{uid} — display name, bio, profile photo URL, social links
-- posts/{postId} — author UID, text, image URL, timestamps, likes/comments
-- stories/{storyId} — author UID, text/image URL, creation/expiry timestamps
-- chats/{chatId} and chats/{chatId}/messages/{messageId} — participants and real-time messages
-- follows/{followId} — follower/followed UIDs
+Use the exact values Firebase gives you. Do not send or create a service-account private key.
 
-## Before public launch
-- Add and test restrictive Firestore and Storage Security Rules.
-- Use Firebase Authentication, never browser-stored passwords.
-- Upload photos to Firebase Storage instead of putting Base64 images in localStorage.
-- Test account creation, login, logout, posting, follow, and two-account messaging.
-- Then package the web app for Android with Capacitor and build the APK in Android Studio.
+## 3. Publish security rules
+In the Firebase Console, open Firestore → Rules and publish the contents of this branch's `firestore.rules`. Open Storage → Rules and publish `storage.rules`. Review and test the rules with the Rules Playground before real users use the app. Do not enable public read/write access.
+
+## Features wired in cloud mode
+- Firebase email/password signup and login; optional Google sign-in
+- Cloud profiles and profile photos
+- Feed posts, likes, comments and follow lists
+- Stories and image upload to Firebase Storage
+- One-to-one chat messages using Firestore realtime listeners
+
+Cloud mode is disabled until the Firebase web config placeholders are replaced. The local demo mode is only for trying the interface and must not be used for real accounts.
+
+## Android APK
+GitHub Actions builds a **debug APK** when relevant files change on this branch. Open the repository Actions tab, choose the latest successful **Build LillyBD Android APK** run, and download the `LillyBD-debug-apk` artifact. A debug APK can be shared for testing, but it is not a signed Play Store release.
+
+## Before wider use
+Test signup/login, profile edits, image upload, posts, likes/comments, follow/unfollow, story expiry, logout, and messaging between two different accounts. Revisit rules for privacy and abuse protection before public launch.
