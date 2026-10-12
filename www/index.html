@@ -213,7 +213,7 @@ if(cloudMode){
     }catch(e){cloudError(e)}
   };
   $('profilePhoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const photoURL=await fbUploadImage(currentUser,f);await fbSaveProfile(currentUser,{photoURL});toast('Profile photo updated')}catch(err){cloudError(err)}};
-  $('startChat').onclick=async()=>{const name=$('newChatName').value.trim();if(!name){toast('Enter the other user’s exact display name');return}try{const c=await startChatWithName(name);$('newChatName').value='';openChat(c.id)}catch(e){cloudError(e)}};
+  $('startChat').onclick=async()=>{const name=$('newChatName').value.trim();if(!name){toast('Enter the other user’s exact display name');return}try{const c=await startChatWithName(name);$('newChatName').value='';if(!cloudChats.some(x=>x.id===c.id)){cloudChats.unshift({id:c.id,members:[currentUser,c.targetUid],names:{[currentUser]:auth.currentUser.displayName||'Me',[c.targetUid]:c.target.displayName||name}})}renderChats();openChat(c.id)}catch(e){cloudError(e)}};
   window.openChat=id=>{
     activeChat=id;const c=cloudChats.find(x=>x.id===id);if(!c)return;
     $('chatPanel').classList.remove('hidden');
