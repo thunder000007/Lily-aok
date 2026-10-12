@@ -150,7 +150,7 @@ $('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value
 let cloudMode = isConfigured, cloudChats = [], cloudStories = [], stopUsers = null, stopPosts = null, stopStories = null, stopChats = null, stopMessages = null;
 function cloudError(e){ console.error(e); toast(e?.message || 'Cloud request failed. Check Firebase setup and rules.'); }
 function cloudMillis(v){ return v && typeof v.toMillis==='function' ? v.toMillis() : (typeof v==='number'?v:Date.now()); }
-function cloudUser(d){ return {id:d.uid||d.id,name:d.displayName||d.name||'LillyBD user',email:d.email||'',bio:d.bio||'',photo:d.photoURL||d.photo||'',following:Array.isArray(d.following)?d.following:[],social:d.social||{}}; }
+function cloudUser(d){ return {id:d.uid||d.id,name:d.displayName||d.name||'LillyBD user',email:(auth?.currentUser?.uid===(d.uid||d.id)?(auth.currentUser.email||''):(d.email||'')),bio:d.bio||'',photo:d.photoURL||d.photo||'',following:Array.isArray(d.following)?d.following:[],social:d.social||{}}; }
 function cloudPost(d){ return {id:d.id,userId:d.uid||d.userId,text:d.text||'',image:d.imageURL||d.image||'',created:cloudMillis(d.createdAt||d.created),likes:Array.isArray(d.likes)?d.likes:[],comments:(Array.isArray(d.comments)?d.comments:[]).map(c=>({uid:c.uid||'',name:c.name||'User',text:c.text||''}))}; }
 function cloudStory(d){ return {id:d.id,userId:d.uid||d.userId,text:d.text||'',image:d.imageURL||d.image||'',created:cloudMillis(d.createdAt||d.created)}; }
 function cloudStartListeners(){
