@@ -37,6 +37,7 @@ jobs:
           Path("/tmp/lillybd-check.mjs").write_text(script, encoding="utf-8")
           PY
           node --check /tmp/lillybd-check.mjs
+          echo "LillyBD JavaScript syntax check passed"
       - name: Generate Android project
         run: npx cap add android
       - name: Sync web assets
