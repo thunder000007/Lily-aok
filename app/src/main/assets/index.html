@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111114">
+<title>LillyBD</title>
+<style>
+:root{--bg:#070817;--panel:#11142a;--panel2:#191d3b;--text:#f7f7ff;--muted:#a7abc9;--line:#29305c;--accent:#a855f7;--shadow:0 14px 35px #0008;--pink:#ff3cac;--cyan:#22d3ee;--blue:#3b82f6;--purple:#a855f7;--green:#39ff88;--orange:#ff8a3d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#36136b88 0,transparent 32%),radial-gradient(ellipse at 95% 20%,#063b6b77 0,transparent 30%),radial-gradient(ellipse at 50% 100%,#55123e55 0,transparent 35%),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+button,input,textarea{font:inherit}button{cursor:pointer;border:0}.app{max-width:480px;margin:auto;min-height:100vh;padding-bottom:88px;position:relative}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:16px 18px;background:#111114df;backdrop-filter:blur(18px);border-bottom:1px solid #ffffff0c}
+.brand{font-weight:900;font-size:25px;letter-spacing:-1px}.brand span{color:#a6a6b4}.iconbtn{width:40px;height:40px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);font-size:18px}
+.page{display:none;padding:18px;animation:rise .28s ease}.page.active{display:block}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card{background:linear-gradient(145deg,#171a36dd,#101225ee);border:1px solid #5d63b344;border-radius:22px;padding:16px;margin-bottom:15px;box-shadow:var(--shadow)}
+h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted);line-height:1.5}.small{font-size:12px;color:var(--muted)}.row{display:flex;align-items:center;gap:11px}.between{justify-content:space-between}.avatar{width:45px;height:45px;border-radius:16px;object-fit:cover;background:#383840;border:1px solid #ffffff24;display:grid;place-items:center;font-weight:800;overflow:hidden;flex-shrink:0}.avatar img{width:100%;height:100%;object-fit:cover}.stories{display:flex;gap:12px;overflow:auto;padding:2px 0 15px;scrollbar-width:none}.story{min-width:68px;text-align:center;font-size:11px;color:var(--muted)}.story-ring{width:62px;height:62px;margin:0 auto 7px;border-radius:22px;padding:3px;background:linear-gradient(135deg,#22d3ee,#3b82f6,#a855f7,#ff3cac,#ff8a3d,#39ff88);}.story-inner{width:100%;height:100%;border-radius:19px;background:#101225;display:grid;place-items:center;overflow:hidden;color:#fff;font-size:24px}.story-inner img{width:100%;height:100%;object-fit:cover}
+.btn{padding:12px 16px;border-radius:14px;background:linear-gradient(105deg,#22d3ee,#6366f1 45%,#d946ef 75%,#ff3cac);color:#fff;font-weight:800;box-shadow:0 0 22px #8b5cf644;transition:transform .15s,opacity .15s}.btn:active{transform:scale(.97)}@keyframes neonPulse{0%,100%{box-shadow:0 0 12px #8b5cf633}50%{box-shadow:0 0 24px #22d3ee55,0 0 34px #ff3cac22}}.brand{background:linear-gradient(90deg,#22d3ee,#a855f7,#ff3cac,#ff8a3d);background-clip:text;-webkit-background-clip:text;color:transparent}.logo-mark{animation:neonPulse 3s ease-in-out infinite}.story-ring{box-shadow:0 0 15px #a855f733}.btn.ghost{background:linear-gradient(120deg,#191d3b,#24143c);color:var(--text);border:1px solid #5963a755}.btn.full{width:100%}.btn.smallbtn{padding:8px 12px;font-size:12px}
+.field{width:100%;background:#101014;color:var(--text);border:1px solid var(--line);padding:13px 14px;border-radius:14px;outline:none;margin:6px 0 12px}.field:focus{border-color:#bdbdc9}.field::placeholder{color:#777783}textarea.field{resize:vertical;min-height:90px}.posthead{display:flex;align-items:center;gap:10px;margin-bottom:12px}.postbody{white-space:pre-wrap;line-height:1.55;margin:12px 0;color:#f1f1f5}.postimg{width:100%;max-height:360px;object-fit:cover;border-radius:16px;margin-top:8px}.postactions{display:flex;gap:8px;border-top:1px solid var(--line);padding-top:12px;margin-top:13px}.postactions button{flex:1;background:transparent;color:var(--muted);padding:8px;border-radius:10px}.postactions button:hover{background:#ffffff0c;color:#fff}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(480px,100%);display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#17171bea;backdrop-filter:blur(20px);border-top:1px solid #ffffff14;z-index:10}.navbtn{background:transparent;color:#777784;border-radius:15px;padding:8px 3px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px}.navbtn b{font-size:21px;font-weight:500}.navbtn.active{background:linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#ff3cac);color:#fff}.empty{text-align:center;padding:28px 10px;color:var(--muted)}.profile-cover{height:110px;border-radius:18px;background:linear-gradient(125deg,#22d3ee 0%,#3b82f6 24%,#a855f7 48%,#ff3cac 70%,#ff8a3d 86%,#39ff88 100%);margin-bottom:-32px}.profile-top{position:relative;padding:0 4px 8px}.profile-top .avatar{width:82px;height:82px;border-radius:26px;border:4px solid #1c1c21;font-size:26px}.stats{display:flex;gap:24px;margin:16px 0}.stats strong{display:block;font-size:18px}.stats span{font-size:12px;color:var(--muted)}.auth{min-height:75vh;display:flex;align-items:center;padding:22px}.authbox{width:100%;max-width:400px;margin:auto}.logo-mark{width:64px;height:64px;border-radius:22px;background:#f4f4f7;color:#151519;display:grid;place-items:center;font-weight:950;font-size:28px;margin-bottom:20px;box-shadow:0 0 35px #ffffff20}.auth h1{font-size:34px;letter-spacing:-1.5px;margin-bottom:8px}.switch{text-align:center;font-size:13px;color:var(--muted);margin-top:16px}.or-divider{display:flex;align-items:center;gap:12px;margin:15px 0;color:var(--muted);font-size:11px}.or-divider:before,.or-divider:after{content:"";height:1px;background:var(--line);flex:1}.btn.google{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#202124;box-shadow:none;border:1px solid #dadce0}.google-g{font-weight:900;font-size:20px;background:conic-gradient(from -45deg,#4285f4 0 25%,#34a853 25% 50%,#fbbc05 50% 75%,#ea4335 75%);color:transparent;background-clip:text;-webkit-background-clip:text}.link{color:#fff;text-decoration:underline;cursor:pointer}.message-list{display:flex;flex-direction:column;gap:9px}.chatrow{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:#ffffff05;border:1px solid #ffffff0b;cursor:pointer}.chatrow:hover{background:#ffffff0b}.bubble{max-width:82%;padding:11px 13px;border-radius:16px;background:#292930;margin:8px 0;white-space:pre-wrap;word-break:break-word}.bubble.mine{margin-left:auto;background:linear-gradient(135deg,#22d3ee,#8b5cf6);color:#fff;border-bottom-right-radius:5px}.bubble.theirs{border-bottom-left-radius:5px}.chatwindow{height:48vh;min-height:250px;overflow:auto;display:flex;flex-direction:column;padding:8px 0}.sendrow{display:flex;gap:8px}.sendrow .field{margin:0;min-width:0}.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:30;background:linear-gradient(105deg,#22d3ee,#8b5cf6,#ff3cac);color:#fff;padding:11px 16px;border-radius:14px;font-size:13px;box-shadow:var(--shadow);display:none}.filelabel{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;background:linear-gradient(120deg,#1b2750,#351b50);border:1px solid #5362a866;border-radius:12px;font-size:12px;cursor:pointer;color:#eee}.hidden{display:none!important}.section-title{font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:8px 0 13px}
+@media(min-width:600px){body{padding:20px 0}.app{border:1px solid #ffffff13;border-radius:28px;overflow:hidden;min-height:calc(100vh - 40px);box-shadow:0 25px 80px #0008}.top{border-radius:28px 28px 0 0}.bottom{bottom:20px;border-radius:0 0 28px 28px}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top"><div class="brand">lilly<span>bd.</span></div><button class="iconbtn" id="topAction" aria-label="Notifications">✧</button></header>
+  <main id="authView" class="auth">
+    <div class="authbox">
+      <div class="logo-mark">L</div><div class="small">YOUR LITTLE CORNER OF THE INTERNET</div>
+      <h1 id="authTitle">Welcome to LillyBD</h1><p id="authSub">Create an account and share your moments.</p>
+      <form id="authForm">
+        <input class="field" id="authName" placeholder="Your name" autocomplete="name">
+        <input class="field" id="authEmail" type="email" placeholder="Email address" autocomplete="email" required>
+        <input class="field" id="authPassword" type="password" placeholder="Password (minimum 4 characters)" minlength="4" required>
+        <button class="btn full" id="authSubmit" type="submit">Create account</button>
+      </form>
+      <div class="or-divider"><span>OR</span></div>
+      <button class="btn google full" id="googleSignIn" type="button"><span class="google-g">G</span> Continue with Google</button>
+      <div class="switch"><span id="switchText">Already have an account?</span> <span class="link" id="switchAuth">Log in</span></div>
+      <p class="small" style="margin-top:22px">Demo version: your data stays in this browser on this device.</p>
+    </div>
+  </main>
+  <div id="mainView" class="hidden">
+    <section class="page active" id="homePage">
+      <div class="row between" style="margin-bottom:15px"><div><div class="small">MONDAY VIBES, EVERY DAY</div><h2 style="margin:4px 0 0">Your feed ✦</h2></div><button class="btn ghost smallbtn" onclick="go('post')">＋ Create</button></div>
+      <div class="stories" id="stories"></div>
+      <div class="card">
+        <div class="row"><div class="avatar" id="quickAvatar">L</div><button class="field" style="text-align:left;margin:0;border-radius:18px" onclick="go('post')">What's on your mind?</button></div>
+        <div class="row between" style="margin-top:12px"><span class="small">✧ Share a moment with LillyBD</span><button class="btn ghost smallbtn" onclick="go('post')">Post now</button></div>
+      </div>
+      <div class="card"><div class="row between"><div><div class="section-title" style="margin:0 0 5px">Community</div><strong>Discover people</strong></div><span class="small">Follow accounts</span></div><div id="peopleList" style="margin-top:12px"></div></div>
+      <div id="feed"></div>
+    </section>
+    <section class="page" id="postPage">
+      <h2>Create something ✦</h2><p>Share a post or add a story for the next 24 hours.</p>
+      <div class="card"><div class="section-title">New post</div>
+        <textarea class="field" id="postText" placeholder="Write something worth sharing..."></textarea>
+        <label class="filelabel">▧ Add photo <input id="postPhoto" type="file" accept="image/*" class="hidden"></label><span class="small" id="postFileName" style="margin-left:8px"></span>
+        <div style="margin-top:14px"><button class="btn full" id="publishPost">Publish post</button></div>
+      </div>
+      <div class="card"><div class="section-title">New story · disappears after 24 hours</div>
+        <p class="small">Add a photo or a short thought.</p><input class="field" id="storyText" placeholder="A little moment...">
+        <label class="filelabel">▧ Story photo <input id="storyPhoto" type="file" accept="image/*" class="hidden"></label><span class="small" id="storyFileName" style="margin-left:8px"></span>
+        <div style="margin-top:14px"><button class="btn full" id="publishStory">Add to story</button></div>
+      </div>
+    </section>
+    <section class="page" id="messagePage">
+      <h2>Messages</h2><p>Say hello to someone on LillyBD.</p>
+      <div class="card"><div class="section-title">Start a conversation</div><input class="field" id="newChatName" placeholder="Person's name"><button class="btn full" id="startChat">＋ New message</button></div>
+      <div class="section-title">Your chats</div><div class="message-list" id="chatList"></div>
+      <div class="card hidden" id="chatPanel"><div class="row between"><div class="row"><div class="avatar" id="chatAvatar">?</div><div><strong id="chatTitle">Chat</strong><div class="small">Private demo conversation</div></div></div><button class="iconbtn" id="closeChat">×</button></div><div class="chatwindow" id="chatWindow"></div><form class="sendrow" id="sendForm"><input class="field" id="messageInput" placeholder="Write a message..." required><button class="btn" type="submit">➤</button></form></div>
+      <p class="small">Messages in this demo are stored on this device. Real cross-device messaging needs a server.</p>
+    </section>
+    <section class="page" id="profilePage">
+      <div class="card">
+        <div class="profile-cover"></div><div class="profile-top"><div class="row between"><div class="avatar" id="profileAvatar">L</div><button class="btn ghost smallbtn" id="editProfile">Edit profile</button></div><h2 id="profileName" style="margin:12px 0 4px">Your name</h2><div class="small" id="profileEmail"></div><p id="profileBio" style="margin:10px 0 0">Welcome to my LillyBD profile ✦</p></div>
+        <div class="stats"><div><strong id="statPosts">0</strong><span>Posts</span></div><div><strong id="statStories">0</strong><span>Stories</span></div><div><strong id="statFollowers">0</strong><span>Followers</span></div><div><strong id="statFollowing">0</strong><span>Following</span></div></div>
+        <div id="profileSocials" class="row" style="flex-wrap:wrap;gap:8px;margin:12px 0"></div>
+        <label class="filelabel">◎ Change profile photo <input id="profilePhoto" type="file" accept="image/*" class="hidden"></label>
+      </div>
+      <div class="card hidden" id="editBox"><div class="section-title">Edit your profile</div><input class="field" id="editName" placeholder="Display name"><textarea class="field" id="editBio" placeholder="A short bio"></textarea><div class="section-title">Social media links</div><input class="field" id="linkInstagram" placeholder="Instagram URL (https://...)"><input class="field" id="linkFacebook" placeholder="Facebook URL (https://...)"><input class="field" id="linkTikTok" placeholder="TikTok URL (https://...)"><input class="field" id="linkYouTube" placeholder="YouTube URL (https://...)"><input class="field" id="linkOther" placeholder="Other social link (optional)"><div class="row"><button class="btn" id="saveProfile">Save changes</button><button class="btn ghost" id="cancelEdit">Cancel</button></div></div>
+      <div class="row between" style="margin:20px 2px 12px"><h3 style="margin:0">Your posts</h3><span class="small">Your little gallery</span></div><div id="myPosts"></div>
+      <button class="btn ghost full" id="logoutBtn" style="margin-top:12px">Log out</button>
+    </section>
+  </div>
+  <nav class="bottom hidden" id="bottomNav">
+    <button class="navbtn active" data-page="home"><b>⌂</b>Home</button>
+    <button class="navbtn" data-page="post"><b>＋</b>Post</button>
+    <button class="navbtn" data-page="message"><b>✉</b>Message</button>
+    <button class="navbtn" data-page="profile"><b>◉</b>Profile</button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const DB='lillybd_demo_v1';
+let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
+state.users=Array.isArray(state.users)?state.users:[];state.posts=Array.isArray(state.posts)?state.posts:[];state.stories=Array.isArray(state.stories)?state.stories:[];state.chats=Array.isArray(state.chats)?state.chats:[];
+function load(){try{return JSON.parse(localStorage.getItem(DB))||{users:[],posts:[],stories:[],chats:[]}}catch(e){return{users:[],posts:[],stories:[],chats:[]}}}
+function save(){localStorage.setItem(DB,JSON.stringify(state))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.style.display='none',2400)}
+function user(){return state.users.find(u=>u.id===currentUser)}
+function avatarHTML(u,size=''){return u&&u.photo?`<img src="${u.photo}" alt="">`:esc((u&&u.name||'L').trim().charAt(0).toUpperCase())}
+function renderAvatar(el,u){el.innerHTML=avatarHTML(u)}
+function setAuth(mode){authMode=mode;$('authTitle').textContent=mode==='signup'?'Welcome to LillyBD':'Welcome back';$('authSub').textContent=mode==='signup'?'Create an account and share your moments.':'Log in to your LillyBD account.';$('authName').classList.toggle('hidden',mode==='login');$('authName').required=mode==='signup';$('authSubmit').textContent=mode==='signup'?'Create account':'Log in';$('switchText').textContent=mode==='signup'?'Already have an account?':"Don't have an account?";$('switchAuth').textContent=mode==='signup'?'Log in':'Sign up'}
+$('switchAuth').onclick=()=>setAuth(authMode==='signup'?'login':'signup');
+$('googleSignIn').onclick=()=>{
+  toast('Google login setup needed: connect a Firebase project first.');
+  alert('Continue with Google requires Firebase setup. Your email/password sign-up and login should work offline in this demo. To activate Google login, add your Firebase web config and enable Google in Firebase Authentication.');
+};
+$('authForm').onsubmit=e=>{e.preventDefault();const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(password.length<4){toast('Password must be at least 4 characters');return}let found=state.users.find(u=>(u.email||'').toLowerCase()===email);if(authMode==='signup'){if(found){toast('Account already exists. Please log in.');return}const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}const u={id:uid(),name,email,password,bio:'Welcome to my LillyBD profile ✦',photo:'',following:[],social:{}};state.users.push(u);currentUser=u.id;save();enterApp();toast('Welcome to LillyBD!')}else{if(!found||found.password!==password){toast('Email or password is incorrect');return}currentUser=found.id;enterApp();toast('You are logged in')}};
+function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll()}
+function logout(){currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
+function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
+$('topAction').onclick=()=>toast('You are all caught up ✦');
+function readFile(file,cb){if(!file)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
+$('postPhoto').onchange=e=>readFile(e.target.files[0],d=>{postImageData=d;$('postFileName').textContent=e.target.files[0].name});
+$('storyPhoto').onchange=e=>readFile(e.target.files[0],d=>{storyImageData=d;$('storyFileName').textContent=e.target.files[0].name});
+$('publishPost').onclick=()=>{const text=$('postText').value.trim();if(!text&&!postImageData){toast('Write something or add a photo first');return}state.posts.unshift({id:uid(),userId:currentUser,text,image:postImageData,created:Date.now(),likes:[],comments:[]});save();$('postText').value='';$('postPhoto').value='';$('postFileName').textContent='';postImageData='';toast('Post published ✦');go('home');renderAll()};
+$('publishStory').onclick=()=>{const text=$('storyText').value.trim();if(!text&&!storyImageData){toast('Add a thought or photo first');return}state.stories.unshift({id:uid(),userId:currentUser,text,image:storyImageData,created:Date.now()});save();$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦');go('home');renderAll()};
+function timeAgo(t){let m=Math.max(1,Math.floor((Date.now()-t)/60000));if(m<60)return m+'m ago';let h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
+function renderStories(){state.stories=state.stories.filter(s=>Date.now()-s.created<86400000);const all=[{id:'own',userId:currentUser,text:'Add your story',image:user().photo,created:Date.now(),own:true},...state.stories];$('stories').innerHTML=all.map(s=>{let u=state.users.find(x=>x.id===s.userId)||user();return `<div class="story" onclick="${s.own?"go('post')":`viewStory('${s.id}')`}"><div class="story-ring"><div class="story-inner">${s.image?`<img src="${s.image}" alt="">`:'✦'}</div></div><div>${s.own?'Your story':esc(u.name.split(' ')[0])}</div></div>`}).join('')}
+function viewStory(id){const s=state.stories.find(x=>x.id===id);if(s)alert((s.text||'A LillyBD moment')+(s.image?'\n\nPhoto story':'')+'\n\n'+timeAgo(s.created))}
+function postHTML(p){let u=state.users.find(x=>x.id===p.userId)||{name:'LillyBD',photo:''},liked=p.likes.includes(currentUser);return `<article class="card"><div class="posthead"><div class="avatar">${avatarHTML(u)}</div><div style="flex:1"><strong>${esc(u.name)}</strong><div class="small">${timeAgo(p.created)}</div></div>${p.userId===currentUser?`<button class="iconbtn" style="width:34px;height:34px" onclick="deletePost('${p.id}')">⋯</button>`:''}</div>${p.text?`<div class="postbody">${esc(p.text)}</div>`:''}${p.image?`<img class="postimg" src="${p.image}" alt="Post photo">`:''}<div class="postactions"><button onclick="likePost('${p.id}')">${liked?'♥':'♡'} ${p.likes.length} Like</button><button onclick="commentPost('${p.id}')">☏ ${p.comments.length} Comment</button><button onclick="sharePost('${p.id}')">↗ Share</button></div>${p.comments.slice(-2).map(c=>`<div class="small" style="margin-top:8px"><strong style="color:#eee">${esc(c.name)}:</strong> ${esc(c.text)}</div>`).join('')}</article>`}
+function renderFeed(){$('feed').innerHTML=state.posts.length?state.posts.map(postHTML).join(''):'<div class="card empty">✧<h3>It is quiet here</h3><p>Be the first to share a moment on LillyBD.</p><button class="btn" onclick="go(\'post\')">Create your first post</button></div>';renderStories()}
+function renderProfile(){const u=user();u.following=u.following||[];u.social=u.social||{};renderAvatar($('profileAvatar'),u);renderAvatar($('quickAvatar'),u);$('profileName').textContent=u.name;$('profileEmail').textContent=u.email;$('profileBio').textContent=u.bio||'Welcome to my LillyBD profile ✦';$('statPosts').textContent=state.posts.filter(p=>p.userId===currentUser).length;$('statStories').textContent=state.stories.filter(s=>s.userId===currentUser&&Date.now()-s.created<86400000).length;$('statFollowers').textContent=state.users.filter(x=>(x.following||[]).includes(currentUser)).length;$('statFollowing').textContent=u.following.length;const labels={instagram:'Instagram',facebook:'Facebook',tiktok:'TikTok',youtube:'YouTube',other:'Social link'};$('profileSocials').innerHTML=Object.entries(u.social).filter(([k,v])=>v&&/^https?:\/\//i.test(v)).map(([k,v])=>`<a class="filelabel" style="text-decoration:none" href="${esc(v)}" target="_blank" rel="noopener noreferrer">↗ ${labels[k]||'Social link'}</a>`).join('');const mine=state.posts.filter(p=>p.userId===currentUser);$('myPosts').innerHTML=mine.length?mine.map(postHTML).join(''):'<div class="card empty">Your posts will appear here.</div>';renderPeople()}
+function renderAll(){renderFeed();renderProfile();renderChats()}
+function renderPeople(){const others=state.users.filter(x=>x.id!==currentUser);$('peopleList').innerHTML=others.length?others.map(x=>{const following=(user().following||[]).includes(x.id);return `<div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row" style="min-width:0"><div class="avatar">${avatarHTML(x)}</div><div style="min-width:0"><strong>${esc(x.name)}</strong><div class="small">${state.users.filter(y=>(y.following||[]).includes(x.id)).length} followers</div></div></div><button class="btn ${following?'ghost':''} smallbtn" onclick="toggleFollow('${x.id}')">${following?'Following ✓':'＋ Follow'}</button></div>`}).join(''):'<div class="small" style="padding:12px 0">No other accounts yet. Log out and create another account on this device to try following.</div>'}
+function toggleFollow(id){if(id===currentUser)return;const u=user();u.following=u.following||[];if(u.following.includes(id)){u.following=u.following.filter(x=>x!==id);toast('Unfollowed account')}else{u.following.push(id);toast('Following ✦')}save();renderAll()}
+function likePost(id){const p=state.posts.find(p=>p.id===id);if(!p)return;p.likes=p.likes||[];p.likes=p.likes.includes(currentUser)?p.likes.filter(x=>x!==currentUser):[...p.likes,currentUser];save();renderFeed();renderProfile()}
+function commentPost(id){const text=prompt('Write a comment');if(!text||!text.trim())return;const p=state.posts.find(p=>p.id===id);p.comments.push({name:user().name,text:text.trim()});save();renderFeed();renderProfile()}
+function sharePost(id){const p=state.posts.find(p=>p.id===id);if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText((p.text||'LillyBD post')+' — LillyBD').then(()=>toast('Post text copied')).catch(()=>toast('Nice post ✦'));else toast('Nice post ✦')}
+function deletePost(id){if(!confirm('Delete this post?'))return;state.posts=state.posts.filter(p=>p.id!==id);save();renderAll();toast('Post deleted')}
+$('editProfile').onclick=()=>{const u=user();u.social=u.social||{};$('editBox').classList.remove('hidden');$('editName').value=u.name;$('editBio').value=u.bio||'';$('linkInstagram').value=u.social.instagram||'';$('linkFacebook').value=u.social.facebook||'';$('linkTikTok').value=u.social.tiktok||'';$('linkYouTube').value=u.social.youtube||'';$('linkOther').value=u.social.other||''};
+$('cancelEdit').onclick=()=>$('editBox').classList.add('hidden');
+$('saveProfile').onclick=()=>{let n=$('editName').value.trim();if(!n){toast('Name cannot be empty');return}const u=user();u.name=n;u.bio=$('editBio').value.trim();const cleanLink=id=>{let v=$(id).value.trim();if(!v)return '';if(!/^https?:\/\//i.test(v)){toast('Social links must start with https:// or http://');return null}return v};const social={instagram:cleanLink('linkInstagram'),facebook:cleanLink('linkFacebook'),tiktok:cleanLink('linkTikTok'),youtube:cleanLink('linkYouTube'),other:cleanLink('linkOther')};if(Object.values(social).some(v=>v===null))return;u.social=social;save();$('editBox').classList.add('hidden');renderAll();toast('Profile updated')};
+$('profilePhoto').onchange=e=>readFile(e.target.files[0],d=>{user().photo=d;save();renderAll();toast('Profile photo updated')});
+$('logoutBtn').onclick=()=>{if(confirm('Log out of LillyBD?'))logout()};
+$('startChat').onclick=()=>{let name=$('newChatName').value.trim();if(!name){toast('Enter a name first');return}let c=state.chats.find(c=>c.owner===currentUser&&c.name.toLowerCase()===name.toLowerCase());if(!c){c={id:uid(),owner:currentUser,name,messages:[]};state.chats.unshift(c);save()}$('newChatName').value='';openChat(c.id);renderChats()};
+function renderChats(){const list=state.chats.filter(c=>c.owner===currentUser);$('chatList').innerHTML=list.length?list.map(c=>`<div class="chatrow" onclick="openChat('${c.id}')"><div class="avatar">${esc(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><strong>${esc(c.name)}</strong><div class="small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.messages.length?c.messages[c.messages.length-1].text:'Start a conversation')}</div></div><span class="small">›</span></div>`).join(''):'<div class="card empty">No conversations yet. Start a new message above.</div>'}
+function openChat(id){activeChat=id;const c=state.chats.find(c=>c.id===id);if(!c)return;$('chatPanel').classList.remove('hidden');$('chatTitle').textContent=c.name;$('chatAvatar').textContent=c.name.charAt(0).toUpperCase();renderChatMessages();$('chatPanel').scrollIntoView({behavior:'smooth',block:'nearest'})}
+function renderChatMessages(){const c=state.chats.find(c=>c.id===activeChat);if(!c)return;$('chatWindow').innerHTML=c.messages.map(m=>`<div class="bubble ${m.mine?'mine':'theirs'}">${esc(m.text)}<div style="font-size:10px;opacity:.6;margin-top:4px">${timeAgo(m.time)}</div></div>`).join('')||'<div class="empty">Say hello 👋</div>';$('chatWindow').scrollTop=$('chatWindow').scrollHeight}
+$('closeChat').onclick=()=>{$('chatPanel').classList.add('hidden');activeChat=null};
+$('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;const c=state.chats.find(c=>c.id===activeChat);c.messages.push({text,mine:true,time:Date.now()});save();$('messageInput').value='';renderChatMessages();renderChats()};
+setAuth('signup');
+</script>
+</body>
+</html>
