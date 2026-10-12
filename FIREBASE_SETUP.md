@@ -1,34 +1,37 @@
 # LillyBD Firebase setup
 
-## Selected project
+## Confirmed Firebase project
 
-This repository is configured to use **lillybd-1c18e** as its single Firebase project for Authentication, Cloud Firestore, and Hosting. This is a choice based on the project ID you supplied first; repository access does not let us verify that this project exists in your Firebase account or that your Google account has Firebase permissions.
+The user supplied the Firebase Console URL for project **lillybd-f499d**. This repository selects that project as its default Firebase CLI target. Repository access does not grant permission to enable Firebase services or deploy to the project.
 
-## Current repository findings
+## Current app findings
 
-- The current app is a single HTML file: `LillyBD_Rainbow_Login_Fixed.html`.
-- Its email/password login, profiles, posts, and chat messages currently use browser `localStorage`.
-- Google login is a placeholder alert.
-- The current chat is a local demo; it is not real-time or shared across devices.
-- No Firebase web app configuration is present in the repository.
+- The app entry point is `LillyBD_Rainbow_Login_Fixed.html`.
+- Existing sign-in/profile/chat behavior uses browser `localStorage`; it is not yet backed by Firebase.
+- Google sign-in is currently a placeholder.
+- There is no Firebase web app configuration in the repository yet.
 
-## Firebase Console steps still required
+## Required Firebase Console setup
 
-1. Open https://console.firebase.google.com/ and select project `lillybd-1c18e`.
-2. Register a Web app named `LillyBD Web` if one is not already registered.
-3. In **Build → Authentication → Sign-in method**, enable **Email/Password**.
-4. In **Build → Firestore Database**, create the database and choose its location carefully.
-5. Copy the Web app configuration from **Project settings → Your apps**. Add it to the app during the integration step; do not paste service-account credentials into client code.
-6. Before deployment, replace the localStorage authentication and chat logic with Firebase Authentication and Firestore listeners, and test the security rules against the final document schema.
+1. Open https://console.firebase.google.com/project/lillybd-f499d/overview.
+2. Register a Web app named `LillyBD Web` under **Project settings → General → Your apps** if one is not already registered.
+3. Under **Build → Authentication → Sign-in method**, enable **Email/Password**.
+4. Under **Build → Firestore Database**, create the database and choose its location carefully.
+5. Under **Build → Storage**, initialize the bucket if media uploads are needed.
+6. Copy the Web app config from **Project settings → Your apps** for integration. Never put service-account private keys in browser code or commit them to GitHub.
 
-## Hosting
+## Rules and deployment
 
-`firebase.json` points Firebase Hosting at the repository root and rewrites routes to the existing HTML file. `.firebaserc` selects `lillybd-1c18e`. Once the Firebase CLI is installed and the project is accessible, deploy with:
+- `firestore.rules` is a starting point for user profiles and two-person chats. Test it against the final app schema before deployment.
+- `storage.rules` restricts profile media to the profile owner and chat media to chat participants.
+- The Firebase CLI config targets `lillybd-f499d`.
+
+When Firebase CLI is installed and authenticated with an account that has access to this project, deploy rules only after reviewing/testing them:
 
 ```sh
 firebase login
-firebase use lillybd-1c18e
-firebase deploy --only hosting,firestore:rules
+firebase use lillybd-f499d
+firebase deploy --only firestore:rules,storage
 ```
 
-Do not deploy this as a production chat app yet: the existing HTML still uses localStorage and has not been wired to Firebase. The Firestore rules are a baseline for a two-person chat schema and must be tested against the implementation before use.
+Do not deploy Hosting as a production app yet. The HTML has not been integrated with Firebase Authentication/Firestore, and the app still relies on localStorage. No Firebase services have been enabled or deployed by this repository change.
