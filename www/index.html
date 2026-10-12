@@ -89,7 +89,9 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
   </nav>
 </div>
 <div class="toast" id="toast"></div>
-<script>
+<script type="module">
+import { isConfigured, auth, signUp as fbSignUp, signIn as fbSignIn, signInWithGoogle as fbGoogle, logOut as fbLogOut, watchAuth, getProfile, saveProfile as fbSaveProfile, watchUsers, watchPosts, createPost as fbCreatePost, removePost as fbRemovePost, toggleLike as fbToggleLike, addComment as fbAddComment, toggleFollow as fbToggleFollow, uploadImage as fbUploadImage, watchStories, createStory as fbCreateStory, watchChats, startChatWithName, watchChatMessages, sendChatMessage } from './firebase.js';
+
 const $=id=>document.getElementById(id);
 const DB='lillybd_demo_v1';
 let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
@@ -143,6 +145,93 @@ function openChat(id){activeChat=id;const c=state.chats.find(c=>c.id===id);if(!c
 function renderChatMessages(){const c=state.chats.find(c=>c.id===activeChat);if(!c)return;$('chatWindow').innerHTML=c.messages.map(m=>`<div class="bubble ${m.mine?'mine':'theirs'}">${esc(m.text)}<div style="font-size:10px;opacity:.6;margin-top:4px">${timeAgo(m.time)}</div></div>`).join('')||'<div class="empty">Say hello 👋</div>';$('chatWindow').scrollTop=$('chatWindow').scrollHeight}
 $('closeChat').onclick=()=>{$('chatPanel').classList.add('hidden');activeChat=null};
 $('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;const c=state.chats.find(c=>c.id===activeChat);c.messages.push({text,mine:true,time:Date.now()});save();$('messageInput').value='';renderChatMessages();renderChats()};
+
+/* Firebase cloud-mode bridge. Demo mode stays unchanged until real config is supplied. */
+let cloudMode = isConfigured, cloudChats = [], cloudStories = [], stopUsers = null, stopPosts = null, stopStories = null, stopChats = null, stopMessages = null;
+function cloudError(e){ console.error(e); toast(e?.message || 'Cloud request failed. Check Firebase setup and rules.'); }
+function cloudMillis(v){ return v && typeof v.toMillis==='function' ? v.toMillis() : (typeof v==='number'?v:Date.now()); }
+function cloudUser(d){ return {id:d.uid||d.id,name:d.displayName||d.name||'LillyBD user',email:d.email||'',bio:d.bio||'',photo:d.photoURL||d.photo||'',following:Array.isArray(d.following)?d.following:[],social:d.social||{}}; }
+function cloudPost(d){ return {id:d.id,userId:d.uid||d.userId,text:d.text||'',image:d.imageURL||d.image||'',created:cloudMillis(d.createdAt||d.created),likes:Array.isArray(d.likes)?d.likes:[],comments:(Array.isArray(d.comments)?d.comments:[]).map(c=>({uid:c.uid||'',name:c.name||'User',text:c.text||''}))}; }
+function cloudStory(d){ return {id:d.id,userId:d.uid||d.userId,text:d.text||'',image:d.imageURL||d.image||'',created:cloudMillis(d.createdAt||d.created)}; }
+function cloudStartListeners(){
+  if(stopUsers)stopUsers(); if(stopPosts)stopPosts(); if(stopStories)stopStories(); if(stopChats)stopChats();
+  stopUsers=watchUsers(rows=>{state.users=rows.map(cloudUser); if(!state.users.some(u=>u.id===currentUser)&&auth.currentUser){getProfile(currentUser).then(d=>{if(d){state.users.push(cloudUser(d));renderAll()}}).catch(cloudError)} renderAll()});
+  stopPosts=watchPosts(rows=>{state.posts=rows.map(cloudPost);renderFeed();renderProfile()});
+  stopStories=watchStories(rows=>{state.stories=rows.map(cloudStory).filter(s=>Date.now()-s.created<86400000);renderStories();renderProfile()});
+  stopChats=watchChats(rows=>{cloudChats=rows;renderChats()});
+}
+function cloudEnter(userData){
+  currentUser=userData.uid;
+  getProfile(currentUser).then(d=>{
+    if(!d) throw new Error('Profile missing. Please sign up again.');
+    const cu=cloudUser(d);
+    state.users=state.users.filter(u=>u.id!==cu.id).concat(cu);
+    $('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');
+    cloudStartListeners();go('home');renderAll();toast('Signed in to LillyBD cloud ✦');
+  }).catch(cloudError);
+}
+if(cloudMode){
+  $('authForm').onsubmit=async e=>{
+    e.preventDefault();
+    const email=$('authEmail').value.trim().toLowerCase(), password=$('authPassword').value;
+    if(password.length<6){toast('Password must be at least 6 characters');return}
+    try{
+      if(authMode==='signup'){
+        const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}
+        await fbSignUp(email,password,name);
+        // Store the intended display name in Firebase Auth so the UI can identify the user.
+        const { updateProfile } = await import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js');
+        await updateProfile(auth.currentUser,{displayName:name});
+        cloudEnter(auth.currentUser);
+      } else { await fbSignIn(email,password); cloudEnter(auth.currentUser); }
+    }catch(e){cloudError(e)}
+  };
+  $('googleSignIn').onclick=async()=>{try{await fbGoogle();cloudEnter(auth.currentUser)}catch(e){cloudError(e)}};
+  $('publishPost').onclick=async()=>{
+    const text=$('postText').value.trim(), file=$('postPhoto').files[0];
+    if(!text&&!file){toast('Write something or add a photo first');return}
+    try{let imageURL='';if(file)imageURL=await fbUploadImage(currentUser,file);await fbCreatePost(currentUser,text,imageURL);$('postText').value='';$('postPhoto').value='';$('postFileName').textContent='';postImageData='';toast('Post published ✦');go('home')}
+    catch(e){cloudError(e)}
+  };
+  $('publishStory').onclick=async()=>{
+    const text=$('storyText').value.trim(), file=$('storyPhoto').files[0];
+    if(!text&&!file){toast('Add a thought or photo first');return}
+    try{let imageURL='';if(file)imageURL=await fbUploadImage(currentUser,file);await fbCreateStory(currentUser,text,imageURL);$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦')}
+    catch(e){cloudError(e)}
+  };
+  window.toggleFollow=async id=>{try{const following=(user()?.following||[]).includes(id);await fbToggleFollow(id,following);toast(following?'Unfollowed account':'Following ✦')}catch(e){cloudError(e)}};
+  window.likePost=async id=>{try{const p=state.posts.find(p=>p.id===id);if(p)await fbToggleLike(id,p.likes.includes(currentUser))}catch(e){cloudError(e)}};
+  window.commentPost=async id=>{const text=prompt('Write a comment');if(!text||!text.trim())return;try{await fbAddComment(id,text.trim())}catch(e){cloudError(e)}};
+  window.deletePost=async id=>{if(!confirm('Delete this post?'))return;try{await fbRemovePost(id);toast('Post deleted')}catch(e){cloudError(e)}};
+  $('saveProfile').onclick=async()=>{
+    const n=$('editName').value.trim();if(!n){toast('Name cannot be empty');return}
+    const cleanLink=id=>{const v=$(id).value.trim();if(!v)return '';if(!/^https?:\\/\\//i.test(v))throw new Error('Social links must start with https:// or http://');return v};
+    try{const social={instagram:cleanLink('linkInstagram'),facebook:cleanLink('linkFacebook'),tiktok:cleanLink('linkTikTok'),youtube:cleanLink('linkYouTube'),other:cleanLink('linkOther')};
+      await fbSaveProfile(currentUser,{displayName:n,bio:$('editBio').value.trim(),social});
+      const { updateProfile }=await import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js');await updateProfile(auth.currentUser,{displayName:n});
+      $('editBox').classList.add('hidden');toast('Profile updated')
+    }catch(e){cloudError(e)}
+  };
+  $('profilePhoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const photoURL=await fbUploadImage(currentUser,f);await fbSaveProfile(currentUser,{photoURL});toast('Profile photo updated')}catch(err){cloudError(err)}};
+  $('startChat').onclick=async()=>{const name=$('newChatName').value.trim();if(!name){toast('Enter the other user’s exact display name');return}try{const c=await startChatWithName(name);$('newChatName').value='';openChat(c.id)}catch(e){cloudError(e)}};
+  window.openChat=id=>{
+    activeChat=id;const c=cloudChats.find(x=>x.id===id);if(!c)return;
+    $('chatPanel').classList.remove('hidden');
+    const other=(c.members||[]).find(uid=>uid!==currentUser);
+    $('chatTitle').textContent=(c.names&&c.names[other])||'LillyBD chat';
+    $('chatAvatar').textContent=$('chatTitle').textContent.charAt(0).toUpperCase();
+    if(stopMessages)stopMessages();
+    stopMessages=watchChatMessages(id,rows=>{$('chatWindow').innerHTML=rows.map(m=>{const mine=m.uid===currentUser;return '<div class="bubble '+(mine?'mine':'theirs')+'">'+esc(m.text)+'<div style="font-size:10px;opacity:.6;margin-top:4px">'+timeAgo(cloudMillis(m.createdAt))+'</div></div>'}).join('')||'<div class="empty">Say hello 👋</div>';$('chatWindow').scrollTop=$('chatWindow').scrollHeight});
+    $('chatPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+  };
+  function cloudRenderChats(){ $('chatList').innerHTML=cloudChats.length?cloudChats.map(c=>{const other=(c.members||[]).find(uid=>uid!==currentUser);const name=(c.names&&c.names[other])||'LillyBD chat';return '<div class="chatrow" onclick="openChat(\''+esc(c.id)+'\')"><div class="avatar">'+esc(name.charAt(0).toUpperCase())+'</div><div style="flex:1;min-width:0"><strong>'+esc(name)+'</strong><div class="small">Open conversation</div></div><span class="small">›</span></div>'}).join(''):'<div class="card empty">No conversations yet. Enter another user’s exact display name above.</div>';}
+  renderChats=cloudRenderChats;
+  $('sendForm').onsubmit=async e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;try{await sendChatMessage(activeChat,text);$('messageInput').value=''}catch(err){cloudError(err)}};
+  $('logoutBtn').onclick=()=>{if(confirm('Log out of LillyBD?')){if(stopMessages)stopMessages();[stopUsers,stopPosts,stopStories,stopChats].forEach(fn=>{if(fn)fn()});fbLogOut().then(()=>{currentUser=null;activeChat=null;cloudChats=[];$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}).catch(cloudError)}};
+  watchAuth(u=>{if(u&&!currentUser)cloudEnter(u)});
+}
+Object.assign(window,{go,viewStory,toggleFollow,likePost,commentPost,sharePost,deletePost,openChat});
+
 setAuth('signup');
 </script>
 </body>
