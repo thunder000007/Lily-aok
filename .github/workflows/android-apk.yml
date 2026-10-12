@@ -38,6 +38,7 @@ jobs:
           PY
           node --check /tmp/lillybd-check.mjs
           echo "LillyBD JavaScript syntax check passed"
+          echo "Build source commit: ${GITHUB_SHA}"
       - name: Generate Android project
         run: npx cap add android
       - name: Sync web assets
