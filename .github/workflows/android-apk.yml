@@ -27,14 +27,12 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           html = Path("www/index.html").read_text(encoding="utf-8")
-          start_tag = '<script type="module">'
-          start = html.find(start_tag)
-          end = html.find('</script>', start + len(start_tag)) if start >= 0 else -1
-          if start < 0 or end < 0:
-              raise SystemExit("Could not find LillyBD module script")
-          script = html[start + len(start_tag):end]
-          Path("/tmp/lillybd-check.mjs").write_text(script, encoding="utf-8")
+          match = re.search(r'<script\b[^>]*>(.*?)</script\s*>', html, re.S | re.I)
+          if not match:
+              raise SystemExit("Could not find an inline script in www/index.html")
+          Path("/tmp/lillybd-check.mjs").write_text(match.group(1), encoding="utf-8")
           PY
           node --check /tmp/lillybd-check.mjs
           echo "LillyBD JavaScript syntax check passed"
