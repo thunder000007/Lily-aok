@@ -13,7 +13,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isSelf(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(['uid','displayName','email','bio','photoURL','following','createdAt']);
+        && request.resource.data.keys().hasOnly(['uid','displayName','email','bio','photoURL','following','social','createdAt']);
       allow update: if isSelf(uid)
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email;
@@ -25,7 +25,25 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid','text','imageURL','createdAt','likes']);
-      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && (
+        resource.data.uid == request.auth.uid ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          && request.resource.data.likes is list
+          && request.resource.data.likes.size() <= 10000) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
+          && request.resource.data.comments is list
+          && request.resource.data.comments.size() <= 500)
+      );
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /stories/{storyId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','text','imageURL','createdAt','expiresAt']);
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
     }
 
     match /chats/{chatId} {
