@@ -13,10 +13,10 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isSelf(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(['uid','displayName','email','bio','photoURL','following','social','createdAt']);
+        && request.resource.data.keys().hasOnly(['uid','displayName','bio','photoURL','following','social','createdAt']);
       allow update: if isSelf(uid)
         && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email;
+        && request.resource.data.keys().hasOnly(['uid','displayName','bio','photoURL','following','social','createdAt']);
       allow delete: if isSelf(uid);
     }
 
