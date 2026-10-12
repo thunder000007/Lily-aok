@@ -1,0 +1,6 @@
+{
+  "appId": "com.lillybd.app",
+  "appName": "LillyBD",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
