@@ -23,6 +23,18 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Check app JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("www/index.html").read_text(encoding="utf-8")
+          match = re.search(r'<script type="module">\\s*(.*?)</script>', html, re.S)
+          if not match:
+              raise SystemExit("Could not find LillyBD module script")
+          Path("/tmp/lillybd-check.mjs").write_text(match.group(1), encoding="utf-8")
+          PY
+          node --check /tmp/lillybd-check.mjs
       - name: Generate Android project
         run: npx cap add android
       - name: Sync web assets
