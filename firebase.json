@@ -5,6 +5,7 @@
       "firebase.json",
       ".firebaserc",
       "firestore.rules",
+      "storage.rules",
       "FIREBASE_SETUP.md",
       "**/.*",
       "**/node_modules/**"
@@ -18,5 +19,8 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }
