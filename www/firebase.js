@@ -52,7 +52,7 @@ export async function signInWithGoogle() {
   const ref = profileRef(cred.user.uid);
   if (!(await getDoc(ref)).exists()) {
     await setDoc(ref, { uid: cred.user.uid, displayName: cred.user.displayName || "LillyBD user",
-      email: cred.user.email || "", bio: "Welcome to my LillyBD profile ✦", photoURL: cred.user.photoURL || "",
+      bio: "Welcome to my LillyBD profile ✦", photoURL: cred.user.photoURL || "",
       following: [], social: {}, createdAt: serverTimestamp() });
   }
   return cred.user;
