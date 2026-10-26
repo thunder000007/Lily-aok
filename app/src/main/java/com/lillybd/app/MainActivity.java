@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.StorageMetadata;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -317,7 +318,8 @@ public class MainActivity extends Activity {
                 int comma = dataUrl.indexOf(',');
                 byte[] bytes = Base64.decode(comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl, Base64.DEFAULT);
                 StorageReference ref = com.google.firebase.storage.FirebaseStorage.getInstance().getReference().child(path);
-                ref.putBytes(bytes).continueWithTask(task -> {
+                StorageMetadata metadata = new StorageMetadata.Builder().setContentType("image/jpeg").build();
+                ref.putBytes(bytes, metadata).continueWithTask(task -> {
                     if (!task.isSuccessful()) throw task.getException() != null ? task.getException() : new Exception("Upload failed");
                     return ref.getDownloadUrl();
                 }).addOnCompleteListener(task -> {
