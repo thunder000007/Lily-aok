@@ -1,6 +1,12 @@
 package com.lillybd.app;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Looper;
 import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
@@ -23,6 +29,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private String pendingLocationChatId = null;
+    private LocationListener pendingLocationListener = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -305,6 +313,80 @@ public class MainActivity extends Activity {
                     }
                     sendMessages(arr.toString());
                 });
+        }
+
+        @JavascriptInterface
+        public void shareLocation(String chatId) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || chatId == null || chatId.trim().isEmpty()) return;
+            pendingLocationChatId = chatId;
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                    && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION}, 7201);
+                } else acquireAndSendLocation();
+            });
+        }
+
+        private void acquireAndSendLocation() {
+            String chatId = pendingLocationChatId;
+            if (chatId == null) return;
+            try {
+                LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                Location best = null;
+                for (String provider : new String[]{LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
+                    try {
+                        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                            && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) break;
+                        Location loc = lm.getLastKnownLocation(provider);
+                        if (loc != null && (best == null || loc.getTime() > best.getTime())) best = loc;
+                    } catch (Exception ignored) { }
+                }
+                if (best != null && System.currentTimeMillis() - best.getTime() < 10 * 60 * 1000) {
+                    String link = "https://maps.google.com/?q=" + best.getLatitude() + "," + best.getLongitude();
+                    pendingLocationChatId = null;
+                    new LillyBridge().sendMessage(chatId, "📍 My location: " + link);
+                    return;
+                }
+                final String targetChat = chatId;
+                pendingLocationListener = new LocationListener() {
+                    @Override public void onLocationChanged(Location location) {
+                        try { lm.removeUpdates(this); } catch (Exception ignored) { }
+                        pendingLocationListener = null;
+                        pendingLocationChatId = null;
+                        String link = "https://maps.google.com/?q=" + location.getLatitude() + "," + location.getLongitude();
+                        new LillyBridge().sendMessage(targetChat, "📍 My location: " + link);
+                    }
+                    @Override public void onProviderEnabled(String provider) { }
+                    @Override public void onProviderDisabled(String provider) { }
+                    @SuppressWarnings("deprecation")
+                    @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) { }
+                };
+                String provider = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+                lm.requestLocationUpdates(provider, 1000L, 0f, pendingLocationListener, Looper.getMainLooper());
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Waiting for location…');", null);
+            } catch (SecurityException e) {
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission is required.');", null);
+            } catch (Exception e) {
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Could not get location. Turn on device location and try again.');", null);
+            }
+        }
+
+        @Override
+        public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            if (requestCode == 7201) {
+                boolean granted = false;
+                for (int result : grantResults) if (result == PackageManager.PERMISSION_GRANTED) granted = true;
+                if (granted) acquireAndSendLocation();
+                else {
+                    pendingLocationChatId = null;
+                    if (webView != null) webView.evaluateJavascript(
+                        "window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission denied.');", null);
+                }
+            }
         }
 
         @JavascriptInterface
