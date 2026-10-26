@@ -116,7 +116,17 @@ $('switchAuth').onclick=()=>setAuth(authMode==='signup'?'login':'signup');
 window.onNativeAuthResult = raw => {
   let result;
   try { result = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { toast('Could not read sign-in response'); return; }
-  if (!result || !result.ok) { toast((result && result.message) || 'Authentication failed'); return; }
+  if (!result || !result.ok) {
+    const message=(result && result.message)||'Authentication failed';
+    if (/id has been disabled|account.*disabled|user-disabled/i.test(message)) {
+      currentUser=null; activeChat=null;
+      $('mainView').classList.add('hidden'); $('bottomNav').classList.add('hidden');
+      $('authView').classList.remove('hidden'); $('authForm').reset(); setAuth('login');
+      toast('Your ID has been disabled by the admin.');
+      return;
+    }
+    toast(message); return;
+  }
   if (!result.user) { currentUser=null; activeChat=null; $('mainView').classList.add('hidden'); $('bottomNav').classList.add('hidden'); $('authView').classList.remove('hidden'); $('authForm').reset(); setAuth('login'); toast('Logged out'); return; }
   const u=result.user;
   let local=state.users.find(x=>x.id===u.uid);
