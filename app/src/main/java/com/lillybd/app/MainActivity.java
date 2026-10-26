@@ -316,6 +316,9 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void finishLocationRequest() { acquireAndSendLocation(); }
+
+        @JavascriptInterface
         public void shareLocation(String chatId) {
             FirebaseUser me = auth.getCurrentUser();
             if (me == null || chatId == null || chatId.trim().isEmpty()) return;
