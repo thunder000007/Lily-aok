@@ -122,16 +122,24 @@ if(!validConfig(firebaseConfig)){
  try{const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app)}
  catch(e){message(setupNotice,"Firebase initialization failed: "+e.message,"error")}
 }
-onAuthStateChanged(auth,async user=>{
- if(!user){loginCard.classList.remove("hidden");dashboard.classList.add("hidden");$("signOut").classList.add("hidden");return}
- await user.reload();
- if((user.email||"").toLowerCase()!==ADMIN_EMAIL||!user.emailVerified){
-  await signOut(auth);
-  message(loginMessage,(user.email||"This account")+" is not authorized. Use the verified admin email "+ADMIN_EMAIL+".","error");return
- }
- loginCard.classList.add("hidden");dashboard.classList.remove("hidden");$("signOut").classList.remove("hidden");$("adminIdentity").textContent="Signed in as "+user.email;
- await Promise.all(["users","posts","stories"].map(loadTab));
-});
+if(auth){
+ onAuthStateChanged(auth,async user=>{
+  if(!user){loginCard.classList.remove("hidden");dashboard.classList.add("hidden");$("signOut").classList.add("hidden");return}
+  await user.reload();
+  if((user.email||"").toLowerCase()!==ADMIN_EMAIL||!user.emailVerified){
+   await signOut(auth);
+   message(loginMessage,(user.email||"This account")+" is not authorized. Use the verified admin email "+ADMIN_EMAIL+".","error");return
+  }
+  loginCard.classList.add("hidden");dashboard.classList.remove("hidden");$("signOut").classList.remove("hidden");$("adminIdentity").textContent="Signed in as "+user.email;
+  try{
+   for(const tab of ["users","posts","stories"]){
+    try{const snap=await getDocs(query(collection(db,tab),limit(200)));records[tab]=snap.docs.map(d=>({id:d.id,...d.data()}))}
+    catch(err){setStatus("Could not load "+tab+": "+err.message,"error")}
+   }
+   setCounts();currentTab="users";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab==="users"));render();
+  }catch(err){setStatus("Dashboard load failed: "+err.message,"error")}
+ });
+}
 </script>
 </body>
 </html>
