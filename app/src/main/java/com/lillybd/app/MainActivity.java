@@ -2,6 +2,7 @@ package com.lillybd.app;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -12,8 +13,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.StorageReference;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -232,24 +235,109 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void createPost(String text) {
+        public void createPost(String text) { createPostWithMedia(text, ""); }
+
+        @JavascriptInterface
+        public void createPostWithMedia(String text, String dataUrl) {
             FirebaseUser user = auth.getCurrentUser();
             String cleanText = text == null ? "" : text.trim();
-            if (user == null || cleanText.isEmpty() || cleanText.length() > 10000) {
-                sendPostResult(false, "Sign in and enter a post first", null);
-                return;
+            if (user == null || cleanText.length() > 10000 || (cleanText.isEmpty() && (dataUrl == null || dataUrl.isEmpty()))) {
+                sendPostResult(false, "Sign in and add text or a photo first", null); return;
             }
+            if (dataUrl == null || dataUrl.isEmpty()) { savePost(user, cleanText, ""); return; }
+            uploadImage("posts/" + user.getUid() + "/" + UUID.randomUUID() + ".jpg", dataUrl, (url, error) -> {
+                if (error != null) sendPostResult(false, "Photo upload failed: " + error, null);
+                else savePost(user, cleanText, url);
+            });
+        }
+
+        private void savePost(FirebaseUser user, String text, String mediaUrl) {
             Map<String, Object> post = new HashMap<>();
-            post.put("authorId", user.getUid());
-            post.put("text", cleanText);
-            post.put("mediaURL", "");
-            post.put("likeUids", new java.util.ArrayList<String>());
-            post.put("createdAt", FieldValue.serverTimestamp());
+            post.put("authorId", user.getUid()); post.put("text", text); post.put("mediaURL", mediaUrl);
+            post.put("likeUids", new java.util.ArrayList<String>()); post.put("createdAt", FieldValue.serverTimestamp());
             db.collection("posts").add(post).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) sendPostResult(true, "Post published", task.getResult().getId());
-                else sendPostResult(false, task.getException() == null ? "Could not publish post" :
-                    task.getException().getLocalizedMessage(), null);
+                else sendPostResult(false, task.getException() == null ? "Could not publish post" : task.getException().getLocalizedMessage(), null);
             });
+        }
+
+        @JavascriptInterface
+        public void createStory(String text, String dataUrl) {
+            FirebaseUser user = auth.getCurrentUser();
+            String cleanText = text == null ? "" : text.trim();
+            if (user == null || cleanText.length() > 2000 || (cleanText.isEmpty() && (dataUrl == null || dataUrl.isEmpty()))) {
+                sendStoryResult(false, "Sign in and add text or a photo first"); return;
+            }
+            if (dataUrl == null || dataUrl.isEmpty()) { saveStory(user, cleanText, ""); return; }
+            uploadImage("stories/" + user.getUid() + "/" + UUID.randomUUID() + ".jpg", dataUrl, (url, error) -> {
+                if (error != null) sendStoryResult(false, "Photo upload failed: " + error);
+                else saveStory(user, cleanText, url);
+            });
+        }
+
+        private void saveStory(FirebaseUser user, String text, String mediaUrl) {
+            Map<String, Object> story = new HashMap<>();
+            story.put("authorId", user.getUid()); story.put("text", text); story.put("mediaURL", mediaUrl);
+            story.put("createdAt", FieldValue.serverTimestamp());
+            story.put("expiresAt", new com.google.firebase.Timestamp(new java.util.Date(System.currentTimeMillis() + 24L * 60 * 60 * 1000)));
+            db.collection("stories").add(story).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) sendStoryResult(true, "Story added for 24 hours");
+                else sendStoryResult(false, task.getException() == null ? "Could not publish story" : task.getException().getLocalizedMessage());
+            });
+        }
+
+        @JavascriptInterface
+        public void loadStories() {
+            if (auth.getCurrentUser() == null) { sendStories("[]"); return; }
+            db.collection("stories").whereGreaterThan("expiresAt", com.google.firebase.Timestamp.now())
+                .orderBy("expiresAt", com.google.firebase.firestore.Query.Direction.ASCENDING).limit(100)
+                .get().addOnCompleteListener(task -> {
+                    org.json.JSONArray arr = new org.json.JSONArray();
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                            try {
+                                JSONObject item = new JSONObject();
+                                item.put("id", doc.getId());
+                                item.put("authorId", doc.getString("authorId") == null ? "" : doc.getString("authorId"));
+                                item.put("text", doc.getString("text") == null ? "" : doc.getString("text"));
+                                item.put("mediaURL", doc.getString("mediaURL") == null ? "" : doc.getString("mediaURL"));
+                                Object created = doc.get("createdAt");
+                                item.put("createdAt", created instanceof com.google.firebase.Timestamp ? ((com.google.firebase.Timestamp) created).toDate().getTime() : System.currentTimeMillis());
+                                arr.put(item);
+                            } catch (Exception ignored) { }
+                        }
+                    }
+                    sendStories(arr.toString());
+                });
+        }
+
+        private interface UploadCallback { void complete(String url, String error); }
+        private void uploadImage(String path, String dataUrl, UploadCallback callback) {
+            try {
+                int comma = dataUrl.indexOf(',');
+                byte[] bytes = Base64.decode(comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl, Base64.DEFAULT);
+                StorageReference ref = com.google.firebase.storage.FirebaseStorage.getInstance().getReference().child(path);
+                ref.putBytes(bytes).continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException() != null ? task.getException() : new Exception("Upload failed");
+                    return ref.getDownloadUrl();
+                }).addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) callback.complete(task.getResult().toString(), null);
+                    else callback.complete(null, task.getException() == null ? "Upload failed" : task.getException().getLocalizedMessage());
+                });
+            } catch (Exception ex) { callback.complete(null, ex.getLocalizedMessage()); }
+        }
+
+        private void sendStoryResult(boolean ok, String message) {
+            try {
+                JSONObject result = new JSONObject(); result.put("ok", ok); result.put("message", message == null ? "" : message);
+                String json = result.toString();
+                runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeStoryResult && window.onNativeStoryResult(" + JSONObject.quote(json) + ");", null); });
+            } catch (Exception ignored) { }
+        }
+        private void sendStories(String json) {
+            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                "window.onNativeStoriesLoaded && window.onNativeStoriesLoaded(" + JSONObject.quote(json) + ");", null); });
         }
 
         @JavascriptInterface
