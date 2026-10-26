@@ -99,6 +99,21 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { }
     }
 
+    private void checkAccountStatus() {
+        FirebaseUser user = auth == null ? null : auth.getCurrentUser();
+        if (user == null) return;
+        user.reload().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) return;
+            String error = task.getException() == null ? "" :
+                String.valueOf(task.getException().getMessage()).toLowerCase();
+            if (error.contains("disabled") || error.contains("user-disabled")) {
+                auth.signOut();
+                sendResult(false, "Your ID has been disabled by the admin.", null);
+            }
+            // Temporary network errors do not log the user out.
+        });
+    }
+
     private void saveProfile(FirebaseUser user, String name) {
         if (user == null) return;
         Map<String, Object> profile = new HashMap<>();
@@ -144,6 +159,19 @@ public class MainActivity extends Activity {
                     if (task.isSuccessful() && task.getResult() != null) {
                         FirebaseUser user = task.getResult().getUser();
                         user.reload().addOnCompleteListener(reloadTask -> {
+                            if (!reloadTask.isSuccessful()) {
+                                String error = reloadTask.getException() == null ? "" :
+                                    String.valueOf(reloadTask.getException().getMessage()).toLowerCase();
+                                if (error.contains("disabled") || error.contains("user-disabled")) {
+                                    auth.signOut();
+                                    sendResult(false, "Your ID has been disabled by the admin.", null);
+                                } else {
+                                    sendResult(false, reloadTask.getException() == null ?
+                                        "Could not verify account status. Check your internet and try again." :
+                                        reloadTask.getException().getLocalizedMessage(), null);
+                                }
+                                return;
+                            }
                             FirebaseUser refreshed = auth.getCurrentUser();
                             saveProfile(refreshed, null);
                             sendResult(true, "Logged in", refreshed);
@@ -558,6 +586,13 @@ public class MainActivity extends Activity {
             auth.signOut();
             sendResult(true, "Logged out", null);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Check whether Firebase Admin has disabled this account.
+        checkAccountStatus();
     }
 
     @Override
