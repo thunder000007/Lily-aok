@@ -92,10 +92,13 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
 <script>
 const $=id=>document.getElementById(id);
 const DB='lillybd_demo_v1';
+const SESSION_KEY='lillybd_session_v1';
 let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
 state.users=Array.isArray(state.users)?state.users:[];state.posts=Array.isArray(state.posts)?state.posts:[];state.stories=Array.isArray(state.stories)?state.stories:[];state.chats=Array.isArray(state.chats)?state.chats:[];
 function load(){try{return JSON.parse(localStorage.getItem(DB))||{users:[],posts:[],stories:[],chats:[]}}catch(e){return{users:[],posts:[],stories:[],chats:[]}}}
 function save(){localStorage.setItem(DB,JSON.stringify(state))}
+function saveSession(id){try{localStorage.setItem(SESSION_KEY,id)}catch(e){}}
+function clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.style.display='none',2400)}
@@ -108,9 +111,9 @@ $('googleSignIn').onclick=()=>{
   toast('Google login setup needed: connect a Firebase project first.');
   alert('Continue with Google requires Firebase setup. Your email/password sign-up and login should work offline in this demo. To activate Google login, add your Firebase web config and enable Google in Firebase Authentication.');
 };
-$('authForm').onsubmit=e=>{e.preventDefault();const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(password.length<4){toast('Password must be at least 4 characters');return}let found=state.users.find(u=>(u.email||'').toLowerCase()===email);if(authMode==='signup'){if(found){toast('Account already exists. Please log in.');return}const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}const u={id:uid(),name,email,password,bio:'Welcome to my LillyBD profile ✦',photo:'',following:[],social:{}};state.users.push(u);currentUser=u.id;save();enterApp();toast('Welcome to LillyBD!')}else{if(!found||found.password!==password){toast('Email or password is incorrect');return}currentUser=found.id;enterApp();toast('You are logged in')}};
+$('authForm').onsubmit=e=>{e.preventDefault();const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(password.length<4){toast('Password must be at least 4 characters');return}let found=state.users.find(u=>(u.email||'').toLowerCase()===email);if(authMode==='signup'){if(found){toast('Account already exists. Please log in.');return}const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}const u={id:uid(),name,email,password,bio:'Welcome to my LillyBD profile ✦',photo:'',following:[],social:{}};state.users.push(u);currentUser=u.id;save();saveSession(currentUser);enterApp();toast('Welcome to LillyBD!')}else{if(!found||found.password!==password){toast('Email or password is incorrect');return}currentUser=found.id;saveSession(currentUser);enterApp();toast('You are logged in')}};
 function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll()}
-function logout(){currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
+function logout(){clearSession();currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
 $('topAction').onclick=()=>toast('You are all caught up ✦');
@@ -144,6 +147,8 @@ function renderChatMessages(){const c=state.chats.find(c=>c.id===activeChat);if(
 $('closeChat').onclick=()=>{$('chatPanel').classList.add('hidden');activeChat=null};
 $('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;const c=state.chats.find(c=>c.id===activeChat);c.messages.push({text,mine:true,time:Date.now()});save();$('messageInput').value='';renderChatMessages();renderChats()};
 setAuth('signup');
+// Restore the last signed-in demo account after refresh or reopening the page.
+try{const savedId=localStorage.getItem(SESSION_KEY);if(savedId&&state.users.some(u=>u.id===savedId)){currentUser=savedId;enterApp()}else if(savedId){clearSession()}}catch(e){}
 </script>
 </body>
 </html>
