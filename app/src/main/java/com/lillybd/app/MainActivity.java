@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
                 u.put("email", user.getEmail() == null ? "" : user.getEmail());
                 u.put("name", user.getDisplayName() == null ? "" : user.getDisplayName());
                 u.put("photoURL", user.getPhotoUrl() == null ? "" : user.getPhotoUrl().toString());
+                u.put("emailVerified", user.isEmailVerified());
                 result.put("user", u);
             }
             final String json = result.toString();
@@ -92,7 +93,8 @@ public class MainActivity extends Activity {
                                     .setDisplayName(cleanName).build();
                             user.updateProfile(request).addOnCompleteListener(profileTask -> {
                                 saveProfile(user, cleanName);
-                                sendResult(true, "Account created", user);
+                                user.sendEmailVerification();
+                                sendResult(true, "Account created. Check your email to verify it.", user);
                             });
                         } else sendResult(false, "Could not create account", null);
                     } else sendResult(false, task.getException() == null ?
@@ -106,11 +108,61 @@ public class MainActivity extends Activity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
                         FirebaseUser user = task.getResult().getUser();
-                        saveProfile(user, null);
-                        sendResult(true, "Logged in", user);
+                        user.reload().addOnCompleteListener(reloadTask -> {
+                            FirebaseUser refreshed = auth.getCurrentUser();
+                            saveProfile(refreshed, null);
+                            sendResult(true, "Logged in", refreshed);
+                        });
                     } else sendResult(false, task.getException() == null ?
                         "Login failed" : task.getException().getLocalizedMessage(), null);
                 });
+        }
+
+        @JavascriptInterface
+        public void loadAdminUsers() {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com")) {
+                sendAdminUsers("{\"ok\":false,\"message\":\"Admin access denied\"}");
+                return;
+            }
+            db.collection("users").limit(200).get().addOnCompleteListener(task -> {
+                org.json.JSONArray users = new org.json.JSONArray();
+                if (task.isSuccessful() && task.getResult() != null) {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        try {
+                            JSONObject u = new JSONObject();
+                            u.put("uid", doc.getId());
+                            u.put("name", doc.getString("name") == null ? "LillyBD User" : doc.getString("name"));
+                            u.put("email", doc.getString("email") == null ? "" : doc.getString("email"));
+                            u.put("blocked", Boolean.TRUE.equals(doc.getBoolean("blocked")));
+                            users.put(u);
+                        } catch (Exception ignored) { }
+                    }
+                    sendAdminUsers("{\"ok\":true,\"users\":" + users.toString() + "}");
+                } else sendAdminUsers("{\"ok\":false,\"message\":\"Could not load users. Check Firestore rules.\"}");
+            });
+        }
+
+        @JavascriptInterface
+        public void setUserBlocked(String uid, boolean blocked) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com") ||
+                uid == null || uid.trim().isEmpty() || uid.equals(me.getUid())) {
+                sendAdminUsers("{\"ok\":false,\"message\":\"Admin access denied or invalid user\"}");
+                return;
+            }
+            db.collection("users").document(uid).update("blocked", blocked)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) loadAdminUsers();
+                    else sendAdminUsers("{\"ok\":false,\"message\":\"Could not update user status\"}");
+                });
+        }
+
+        private void sendAdminUsers(String json) {
+            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                "window.onNativeAdminUsers && window.onNativeAdminUsers(" + JSONObject.quote(json) + ");", null); });
         }
 
         @JavascriptInterface
