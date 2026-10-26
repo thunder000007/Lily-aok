@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1036395491244",
+    "firebase_url": "https://lillybd-f499d-default-rtdb.firebaseio.com",
+    "project_id": "lillybd-f499d",
+    "storage_bucket": "lillybd-f499d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036395491244:android:5b60e46406c5c332a59409",
+        "android_client_info": {
+          "package_name": "com.lillybd.app"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5GeKe7KQlvNTQAeeJDSO5mM6CdjRHAks"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
