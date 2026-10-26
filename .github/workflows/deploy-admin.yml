@@ -2,6 +2,11 @@ name: Deploy LillyBD Admin to Firebase Hosting
 
 on:
   workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Exact GitHub Environment name that contains the Firebase service-account secret"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -9,6 +14,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
