@@ -94,6 +94,9 @@ const $=id=>document.getElementById(id);
 const DB='lillybd_demo_v1';
 let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
 state.users=Array.isArray(state.users)?state.users:[];state.posts=Array.isArray(state.posts)?state.posts:[];state.stories=Array.isArray(state.stories)?state.stories:[];state.chats=Array.isArray(state.chats)?state.chats:[];
+// Remove legacy demo passwords that older builds stored in localStorage.
+state.users.forEach(u=>{if(u&&typeof u==='object')delete u.password});
+save();
 function load(){try{return JSON.parse(localStorage.getItem(DB))||{users:[],posts:[],stories:[],chats:[]}}catch(e){return{users:[],posts:[],stories:[],chats:[]}}}
 function save(){localStorage.setItem(DB,JSON.stringify(state))}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
