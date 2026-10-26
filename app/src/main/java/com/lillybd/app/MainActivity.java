@@ -76,6 +76,8 @@ public class MainActivity extends Activity {
             com.google.firebase.firestore.SetOptions.merge());
     }
 
+    private interface UploadCallback { void complete(String url, String error); }
+
     private class LillyBridge {
         @JavascriptInterface
         public void signUp(String name, String email, String password) {
@@ -312,7 +314,6 @@ public class MainActivity extends Activity {
                 });
         }
 
-        private interface UploadCallback { void complete(String url, String error); }
         private void uploadImage(String path, String dataUrl, UploadCallback callback) {
             try {
                 int comma = dataUrl.indexOf(',');
