@@ -129,6 +129,19 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void togglePostLike(String postId, boolean currentlyLiked) {
+            FirebaseUser user = auth.getCurrentUser();
+            if (user == null || postId == null || postId.trim().isEmpty()) return;
+            Object update = currentlyLiked ? FieldValue.arrayRemove(user.getUid()) : FieldValue.arrayUnion(user.getUid());
+            db.collection("posts").document(postId).update("likeUids", update)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) loadPosts();
+                    else sendPostResult(false, task.getException() == null ? "Like update failed" :
+                        task.getException().getLocalizedMessage(), null);
+                });
+        }
+
+        @JavascriptInterface
         public void loadPosts() {
             if (auth.getCurrentUser() == null) { sendPosts("[]"); return; }
             db.collection("posts").orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
