@@ -104,13 +104,32 @@ function avatarHTML(u,size=''){return u&&u.photo?`<img src="${u.photo}" alt="">`
 function renderAvatar(el,u){el.innerHTML=avatarHTML(u)}
 function setAuth(mode){authMode=mode;$('authTitle').textContent=mode==='signup'?'Welcome to LillyBD':'Welcome back';$('authSub').textContent=mode==='signup'?'Create an account and share your moments.':'Log in to your LillyBD account.';$('authName').classList.toggle('hidden',mode==='login');$('authName').required=mode==='signup';$('authSubmit').textContent=mode==='signup'?'Create account':'Log in';$('switchText').textContent=mode==='signup'?'Already have an account?':"Don't have an account?";$('switchAuth').textContent=mode==='signup'?'Log in':'Sign up'}
 $('switchAuth').onclick=()=>setAuth(authMode==='signup'?'login':'signup');
-$('googleSignIn').onclick=()=>{
-  toast('Google login setup needed: connect a Firebase project first.');
-  alert('Continue with Google requires Firebase setup. Your email/password sign-up and login should work offline in this demo. To activate Google login, add your Firebase web config and enable Google in Firebase Authentication.');
+window.onNativeAuthResult = raw => {
+  let result;
+  try { result = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { toast('Could not read sign-in response'); return; }
+  if (!result || !result.ok) { toast((result && result.message) || 'Authentication failed'); return; }
+  if (!result.user) { currentUser=null; activeChat=null; $('mainView').classList.add('hidden'); $('bottomNav').classList.add('hidden'); $('authView').classList.remove('hidden'); $('authForm').reset(); setAuth('login'); toast('Logged out'); return; }
+  const u=result.user;
+  let local=state.users.find(x=>x.id===u.uid);
+  if (!local) { local={id:u.uid,name:u.name||u.email.split('@')[0],email:u.email,bio:'Welcome to my LillyBD profile ✦',photo:u.photoURL||'',following:[],social:{}}; state.users.push(local); }
+  else { local.name=u.name||local.name; local.email=u.email; local.photo=u.photoURL||local.photo||''; }
+  delete local.password;
+  currentUser=u.uid; save(); enterApp(); toast(result.message||'Signed in');
 };
-$('authForm').onsubmit=e=>{e.preventDefault();const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(password.length<4){toast('Password must be at least 4 characters');return}let found=state.users.find(u=>(u.email||'').toLowerCase()===email);if(authMode==='signup'){if(found){toast('Account already exists. Please log in.');return}const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}const u={id:uid(),name,email,password,bio:'Welcome to my LillyBD profile ✦',photo:'',following:[],social:{}};state.users.push(u);currentUser=u.id;save();enterApp();toast('Welcome to LillyBD!')}else{if(!found||found.password!==password){toast('Email or password is incorrect');return}currentUser=found.id;enterApp();toast('You are logged in')}};
+$('googleSignIn').onclick=()=>toast('Google sign-in needs OAuth setup in Firebase Console first.');
+$('authForm').onsubmit=e=>{
+  e.preventDefault();
+  const email=$('authEmail').value.trim(), password=$('authPassword').value;
+  if(password.length<6){toast('Password must be at least 6 characters');return}
+  if(!window.LillyNative){toast('Firebase authentication is unavailable in this app build');return}
+  if(authMode==='signup'){
+    const name=$('authName').value.trim();
+    if(!name){toast('Please enter your name');return}
+    window.LillyNative.signUp(name,email,password);
+  } else { window.LillyNative.login(email,password); }
+};
 function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll()}
-function logout(){currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
+function logout(){if(window.LillyNative){window.LillyNative.logout();return}currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
 $('topAction').onclick=()=>toast('You are all caught up ✦');
