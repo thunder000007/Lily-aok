@@ -77,6 +77,11 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
         <label class="filelabel">◎ Change profile photo <input id="profilePhoto" type="file" accept="image/*" class="hidden"></label>
       </div>
       <div class="card hidden" id="editBox"><div class="section-title">Edit your profile</div><input class="field" id="editName" placeholder="Display name"><textarea class="field" id="editBio" placeholder="A short bio"></textarea><div class="section-title">Social media links</div><input class="field" id="linkInstagram" placeholder="Instagram URL (https://...)"><input class="field" id="linkFacebook" placeholder="Facebook URL (https://...)"><input class="field" id="linkTikTok" placeholder="TikTok URL (https://...)"><input class="field" id="linkYouTube" placeholder="YouTube URL (https://...)"><input class="field" id="linkOther" placeholder="Other social link (optional)"><div class="row"><button class="btn" id="saveProfile">Save changes</button><button class="btn ghost" id="cancelEdit">Cancel</button></div></div>
+      <div class="card hidden" id="adminPanel">
+        <div class="row between"><div><div class="section-title">Admin tools</div><strong>User management</strong></div><button class="btn ghost smallbtn" id="refreshAdminUsers">Refresh</button></div>
+        <p class="small">Admin access is restricted to the verified boteditz999@gmail.com account.</p>
+        <div id="adminUsers"><div class="small">Loading users…</div></div>
+      </div>
       <div class="row between" style="margin:20px 2px 12px"><h3 style="margin:0">Your posts</h3><span class="small">Your little gallery</span></div><div id="myPosts"></div>
       <button class="btn ghost full" id="logoutBtn" style="margin-top:12px">Log out</button>
     </section>
@@ -93,6 +98,7 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
 const $=id=>document.getElementById(id);
 const DB='lillybd_demo_v1';
 let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
+const ADMIN_EMAIL='boteditz999@gmail.com';
 state.users=Array.isArray(state.users)?state.users:[];state.posts=Array.isArray(state.posts)?state.posts:[];state.stories=Array.isArray(state.stories)?state.stories:[];state.chats=Array.isArray(state.chats)?state.chats:[];
 // Remove legacy demo passwords that older builds stored in localStorage.
 state.users.forEach(u=>{if(u&&typeof u==='object')delete u.password});
@@ -117,7 +123,11 @@ window.onNativeAuthResult = raw => {
   if (!local) { local={id:u.uid,name:u.name||u.email.split('@')[0],email:u.email,bio:'Welcome to my LillyBD profile ✦',photo:u.photoURL||'',following:[],social:{}}; state.users.push(local); }
   else { local.name=u.name||local.name; local.email=u.email; local.photo=u.photoURL||local.photo||''; }
   delete local.password;
-  currentUser=u.uid; save(); enterApp(); toast(result.message||'Signed in');
+  currentUser=u.uid; save(); enterApp();
+  const isAdmin=String(u.email||'').toLowerCase()===ADMIN_EMAIL && u.emailVerified===true;
+  $('adminPanel').classList.toggle('hidden',!isAdmin);
+  if(isAdmin && window.LillyNative) window.LillyNative.loadAdminUsers();
+  toast(result.message||'Signed in');
 };
 $('googleSignIn').onclick=()=>toast('Google sign-in needs OAuth setup in Firebase Console first.');
 $('authForm').onsubmit=e=>{
@@ -131,6 +141,14 @@ $('authForm').onsubmit=e=>{
     window.LillyNative.signUp(name,email,password);
   } else { window.LillyNative.login(email,password); }
 };
+window.onNativeAdminUsers=raw=>{
+  let r; try{r=JSON.parse(raw||'{}')}catch(_){toast('Admin response error');return}
+  if(!r.ok){toast(r.message||'Admin access denied');return}
+  const users=Array.isArray(r.users)?r.users:[];
+  $('adminUsers').innerHTML=users.length?users.map(u=>`<div class="row between" style="padding:10px 0;border-top:1px solid var(--line);gap:8px"><div style="min-width:0;flex:1"><strong>${esc(u.name)}</strong><div class="small" style="overflow-wrap:anywhere">${esc(u.email)}</div><div class="small">${u.blocked?'Blocked':'Active'}</div></div><button class="btn ${u.blocked?'':'ghost'} smallbtn" onclick="toggleBlocked('${esc(u.uid)}',${!u.blocked})" ${u.uid===currentUser?'disabled':''}>${u.blocked?'Unblock':'Block'}</button></div>`).join(''):'<div class="small">No users found.</div>';
+};
+function toggleBlocked(uid,blocked){if(!window.LillyNative)return;window.LillyNative.setUserBlocked(uid,blocked)}
+$('refreshAdminUsers').onclick=()=>{if(window.LillyNative)window.LillyNative.loadAdminUsers()};
 function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats();window.LillyNative.loadStories()}}
 function logout(){if(window.LillyNative){window.LillyNative.logout();return}currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
