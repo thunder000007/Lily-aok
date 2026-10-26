@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090b18">
+<title>LillyBD Admin</title>
+<style>
+:root{color-scheme:dark;--bg:#090b18;--panel:#12162a;--panel2:#1b2140;--line:#30395f;--text:#f5f7ff;--muted:#a5aecb;--cyan:#48e0f0;--purple:#a78bfa;--red:#ff7285;--green:#62e6a7}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 5% 0%,#38207166,transparent 35%),radial-gradient(ellipse at 100% 15%,#064a5b55,transparent 32%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}button,input{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:10px 14px;font-weight:700;background:linear-gradient(100deg,#27c7db,#8b5cf6);color:white}button:disabled{opacity:.45;cursor:not-allowed}.ghost{background:#202744;border:1px solid var(--line)}.danger{background:#4b1d31;border:1px solid #7e3049;color:#ffc2cc}.good{background:#143e38;border:1px solid #216b5d;color:#a3f4d2}input{width:100%;background:#090d1d;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:13px;outline:none}input:focus{border-color:var(--cyan)}.wrap{max-width:1100px;margin:auto;padding:20px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}.brand{font-size:24px;font-weight:900;letter-spacing:-.7px}.brand span{color:var(--cyan)}.muted{color:var(--muted)}.panel{background:#12162aee;border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 16px 45px #0003}.hidden{display:none!important}.login{max-width:420px;margin:8vh auto}.login h1{margin-top:0}.field{display:grid;gap:7px;margin:14px 0}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:16px}.stat b{font-size:26px;display:block;margin-top:4px}.tabs{display:flex;gap:8px;overflow:auto;margin:16px 0}.tab{white-space:nowrap;background:#171d35;border:1px solid var(--line)}.tab.active{background:linear-gradient(100deg,#155e75,#5b21b6)}.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.tools input{flex:1;min-width:160px}.list{display:grid;gap:10px}.item{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0d1122;border:1px solid #293253;border-radius:14px;padding:13px}.item-main{min-width:0;overflow-wrap:anywhere}.item-title{font-weight:750}.item-sub{font-size:12px;color:var(--muted);margin-top:3px}.actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#26304c;color:#c6d3f8;font-size:11px}.pill.red{background:#4b1d31;color:#ffc2cc}.notice{padding:12px 14px;border-radius:12px;margin:12px 0;background:#1a2440;color:#dbeafe;overflow-wrap:anywhere}.notice.error{background:#431c2b;color:#ffc2cc}.notice.ok{background:#12382e;color:#a3f4d2}.empty{text-align:center;padding:28px;color:var(--muted)}.mobile-menu{display:none}@media(max-width:640px){.wrap{padding:13px}.panel{padding:14px}.stats{gap:7px}.stat{padding:11px}.stat b{font-size:21px}.stat span{font-size:12px}.item{align-items:flex-start;flex-direction:column}.actions{justify-content:flex-start;width:100%}.top{align-items:flex-start}.brand{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><div><div class="brand"><span>LillyBD</span> Admin</div><div class="muted">Private control dashboard</div></div><button id="signOut" class="ghost hidden">Sign out</button></header>
+  <section id="loginCard" class="panel login">
+    <h1>Admin sign in</h1><p class="muted">Sign in with the authorized administrator email. Regular user accounts cannot access this dashboard.</p>
+    <div id="setupNotice" class="notice hidden"></div>
+    <form id="loginForm">
+      <label class="field">Admin email<input id="email" type="email" autocomplete="username" required placeholder="Admin email"></label>
+      <label class="field">Password<input id="password" type="password" autocomplete="current-password" required placeholder="Password"></label>
+      <button type="submit" style="width:100%">Sign in securely</button>
+    </form>
+    <div id="loginMessage" class="notice hidden" role="status"></div>
+  </section>
+  <main id="dashboard" class="hidden">
+    <div class="panel" style="margin-bottom:15px"><div class="item-title">Dashboard overview</div><div id="adminIdentity" class="muted"></div><div id="status" class="notice hidden" role="status"></div></div>
+    <section class="stats">
+      <div class="stat"><span class="muted">User profiles</span><b id="userCount">—</b></div>
+      <div class="stat"><span class="muted">Posts</span><b id="postCount">—</b></div>
+      <div class="stat"><span class="muted">Stories</span><b id="storyCount">—</b></div>
+    </section>
+    <section class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="users">Users</button>
+        <button class="tab" data-tab="posts">Posts</button>
+        <button class="tab" data-tab="stories">Stories</button>
+      </div>
+      <div class="tools"><input id="search" type="search" placeholder="Search this list…"><button id="refresh" class="ghost">Refresh</button></div>
+      <div id="contentList" class="list"><div class="empty">Loading dashboard…</div></div>
+    </section>
+    <p class="muted" style="font-size:12px;margin:14px 4px">This dashboard only controls data allowed by the deployed Firestore rules. Firebase Authentication account deletion and other privileged operations require a protected server-side Admin SDK endpoint; never put a service-account key in this website.</p>
+  </main>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const ADMIN_EMAIL = "boteditz999@gmail.com";
+const $ = id => document.getElementById(id);
+const loginCard=$("loginCard"), dashboard=$("dashboard"), loginMessage=$("loginMessage"), setupNotice=$("setupNotice");
+let auth=null, db=null, currentTab="users", records={users:[],posts:[],stories:[]};
+function message(el,text,type=""){el.textContent=text;el.className="notice"+(type?" "+type:"");el.classList.remove("hidden")}
+function hide(el){el.classList.add("hidden")}
+function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function dateText(value){try{if(value?.toDate)return value.toDate().toLocaleString();if(value instanceof Date)return value.toLocaleString();return value?new Date(value).toLocaleString():"—"}catch{return "—"}}
+function label(record,tab){return record.name||record.displayName||record.email||record.text||record.caption||record.authorId||record.id||"Untitled"}
+function setCounts(){$("userCount").textContent=records.users.length;$("postCount").textContent=records.posts.length;$("storyCount").textContent=records.stories.length}
+function render(){
+ const term=$("search").value.trim().toLowerCase();
+ const rows=(records[currentTab]||[]).filter(r=>[label(r,currentTab),r.email,r.name,r.text,r.authorId,r.id].some(v=>String(v??"").toLowerCase().includes(term)));
+ const list=$("contentList");
+ if(!rows.length){list.innerHTML='<div class="empty">No records found. Check that Firestore has data and its rules are published.</div>';return}
+ list.innerHTML=rows.map(r=>{
+  const id=esc(r.id),title=esc(label(r,currentTab));
+  const detail=currentTab==="users" ? esc(r.email||r.uid||r.id) : esc((r.text||r.caption||"").slice(0,180)||("Owner: "+(r.authorId||"unknown")));
+  let action="";
+  if(currentTab==="users"){
+   const blocked=r.blocked===true;
+   action='<span class="pill '+(blocked?'red':'')+'">'+(blocked?'Blocked':'Active')+'</span><button class="'+(blocked?'good':'danger')+'" data-action="block" data-id="'+id+'" data-next="'+(!blocked)+'">'+(blocked?'Unblock':'Block')+'</button>';
+  }else{
+   action='<button class="danger" data-action="delete" data-id="'+id+'">Delete '+(currentTab==="posts"?"post":"story")+'</button>';
+  }
+  return '<article class="item"><div class="item-main"><div class="item-title">'+title+'</div><div class="item-sub">'+detail+'</div><div class="item-sub">'+(currentTab==="users"?'Created: '+esc(dateText(r.createdAt||r.updatedAt)): 'Author: '+esc(r.authorId||"—")+' · '+esc(dateText(r.createdAt||r.updatedAt)))+'</div></div><div class="actions">'+action+'</div></article>';
+ }).join("");
+}
+async function loadTab(tab){
+ currentTab=tab;
+ document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ $("contentList").innerHTML='<div class="empty">Loading…</div>';
+ try{
+  const snap=await getDocs(query(collection(db,tab),limit(200)));
+  records[tab]=snap.docs.map(d=>({id:d.id,...d.data()}));
+  setCounts();render();
+ }catch(e){
+  $("contentList").innerHTML='<div class="empty">Could not load '+esc(tab)+': '+esc(e.message)+'<br>Check Firestore rules and confirm they have been deployed.</div>';
+  setStatus("Firestore read failed for "+tab+". "+e.message,"error");
+ }
+}
+function setStatus(text,type=""){message($("status"),text,type)}
+$("loginForm").addEventListener("submit",async e=>{
+ e.preventDefault();hide(loginMessage);
+ if(!auth){message(loginMessage,"Firebase web configuration is missing or still contains placeholders.","error");return}
+ try{await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value)}
+ catch(err){message(loginMessage,err.code==="auth/invalid-credential"?"Email or password is incorrect.":err.message,"error")}
+});
+$("signOut").addEventListener("click",()=>signOut(auth));
+$("refresh").addEventListener("click",()=>loadTab(currentTab));
+$("search").addEventListener("input",render);
+document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>loadTab(b.dataset.tab)));
+$("contentList").addEventListener("click",async e=>{
+ const b=e.target.closest("button[data-action]");if(!b)return;
+ const id=b.dataset.id,action=b.dataset.action;
+ if(action==="block"){
+  const next=b.dataset.next==="true";
+  if(!confirm((next?"Block":"Unblock")+" this user?"))return;
+  try{await updateDoc(doc(db,"users",id),{blocked:next});records.users=records.users.map(r=>r.id===id?{...r,blocked:next}:r);render();setStatus("User "+(next?"blocked":"unblocked")+".","ok")}
+  catch(err){setStatus("Could not update user: "+err.message,"error")}
+ }
+ if(action==="delete"){
+  if(!confirm("Permanently delete this "+currentTab.slice(0,-1)+" record? This cannot be undone."))return;
+  try{await deleteDoc(doc(db,currentTab,id));records[currentTab]=records[currentTab].filter(r=>r.id!==id);setCounts();render();setStatus("Record deleted.","ok")}
+  catch(err){setStatus("Could not delete record: "+err.message,"error")}
+ }
+});
+function validConfig(c){return c&&c.apiKey&&c.projectId==="lillybd-f499d"&&!String(c.apiKey).includes("PASTE_")&&c.appId&&!String(c.appId).includes("PASTE_")}
+if(!validConfig(firebaseConfig)){
+ message(setupNotice,"Setup required: add the Firebase Web app config to admin/firebase-config.js. See ADMIN_SETUP.md in the GitHub repository.","error");
+}else{
+ try{const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app)}
+ catch(e){message(setupNotice,"Firebase initialization failed: "+e.message,"error")}
+}
+if(auth){
+ onAuthStateChanged(auth,async user=>{
+  if(!user){loginCard.classList.remove("hidden");dashboard.classList.add("hidden");$("signOut").classList.add("hidden");return}
+  await user.reload();
+  if((user.email||"").toLowerCase()!==ADMIN_EMAIL||!user.emailVerified){
+   await signOut(auth);
+   message(loginMessage,(user.email||"This account")+" is not authorized. Use the verified admin email "+ADMIN_EMAIL+".","error");return
+  }
+  loginCard.classList.add("hidden");dashboard.classList.remove("hidden");$("signOut").classList.remove("hidden");$("adminIdentity").textContent="Signed in as "+user.email;
+  try{
+   for(const tab of ["users","posts","stories"]){
+    try{const snap=await getDocs(query(collection(db,tab),limit(200)));records[tab]=snap.docs.map(d=>({id:d.id,...d.data()}))}
+    catch(err){setStatus("Could not load "+tab+": "+err.message,"error")}
+   }
+   setCounts();currentTab="users";document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab==="users"));render();
+  }catch(err){setStatus("Dashboard load failed: "+err.message,"error")}
+ });
+}
+</script>
+</body>
+</html>
