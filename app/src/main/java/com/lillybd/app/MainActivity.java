@@ -131,53 +131,6 @@ public class MainActivity extends Activity {
             FirebaseUser me = auth.getCurrentUser();
             if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
                 !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com")) {
-                sendAdminUsers("{\"ok\":false,\"message\":\"Admin access denied\"}");
-                return;
-            }
-            db.collection("users").limit(200).get().addOnCompleteListener(task -> {
-                org.json.JSONArray users = new org.json.JSONArray();
-                if (task.isSuccessful() && task.getResult() != null) {
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        try {
-                            JSONObject u = new JSONObject();
-                            u.put("uid", doc.getId());
-                            u.put("name", doc.getString("name") == null ? "LillyBD User" : doc.getString("name"));
-                            u.put("email", doc.getString("email") == null ? "" : doc.getString("email"));
-                            u.put("blocked", Boolean.TRUE.equals(doc.getBoolean("blocked")));
-                            users.put(u);
-                        } catch (Exception ignored) { }
-                    }
-                    sendAdminUsers("{\"ok\":true,\"users\":" + users.toString() + "}");
-                } else sendAdminUsers("{\"ok\":false,\"message\":\"Could not load users. Check Firestore rules.\"}");
-            });
-        }
-
-        @JavascriptInterface
-        public void setUserBlocked(String uid, boolean blocked) {
-            FirebaseUser me = auth.getCurrentUser();
-            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
-                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com") ||
-                uid == null || uid.trim().isEmpty() || uid.equals(me.getUid())) {
-                sendAdminUsers("{\"ok\":false,\"message\":\"Admin access denied or invalid user\"}");
-                return;
-            }
-            db.collection("users").document(uid).update("blocked", blocked)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) loadAdminUsers();
-                    else sendAdminUsers("{\"ok\":false,\"message\":\"Could not update user status\"}");
-                });
-        }
-
-        private void sendAdminUsers(String json) {
-            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
-                "window.onNativeAdminUsers && window.onNativeAdminUsers(" + JSONObject.quote(json) + ");", null); });
-        }
-
-        @JavascriptInterface
-        public void loadAdminUsers() {
-            FirebaseUser me = auth.getCurrentUser();
-            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
-                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com")) {
                 sendAdminResult("{\"ok\":false,\"message\":\"Admin access denied. Verify the admin email first.\"}");
                 return;
             }
