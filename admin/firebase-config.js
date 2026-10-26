@@ -1,11 +1,11 @@
-// Replace these values with the config from a registered Firebase Web app
-// in project lillybd-f499d (Project settings -> General -> Your apps).
-// Do not put service-account credentials in this file.
+// Firebase client configuration for LillyBD Admin.
+// Uses the API key already present in the project's google-services.json.
+// Firebase Web App registration is still recommended so the console has a
+// dedicated web app entry. Never put service-account credentials here.
 export const firebaseConfig = {
-  apiKey: "PASTE_FIREBASE_WEB_API_KEY",
+  apiKey: "AIzaSyA5GeKe7KQlvNTQAeeJDSO5mM6CdjRHAks",
   authDomain: "lillybd-f499d.firebaseapp.com",
   projectId: "lillybd-f499d",
   storageBucket: "lillybd-f499d.firebasestorage.app",
-  messagingSenderId: "1036395491244",
-  appId: "PASTE_FIREBASE_WEB_APP_ID"
+  messagingSenderId: "1036395491244"
 };
