@@ -131,14 +131,15 @@ $('authForm').onsubmit=e=>{
     window.LillyNative.signUp(name,email,password);
   } else { window.LillyNative.login(email,password); }
 };
-function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats()}}
+function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats();window.LillyNative.loadStories()}}
 function logout(){if(window.LillyNative){window.LillyNative.logout();return}currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
 $('topAction').onclick=()=>toast('You are all caught up ✦');
 function readFile(file,cb){if(!file)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
-$('postPhoto').onchange=e=>readFile(e.target.files[0],d=>{postImageData=d;$('postFileName').textContent=e.target.files[0].name});
-$('storyPhoto').onchange=e=>readFile(e.target.files[0],d=>{storyImageData=d;$('storyFileName').textContent=e.target.files[0].name});
+function compressImage(file,cb){if(!file)return;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);cb(canvas.toDataURL('image/jpeg',0.78))};img.onerror=()=>toast('Could not read that image');img.src=reader.result};reader.readAsDataURL(file)}
+$('postPhoto').onchange=e=>compressImage(e.target.files[0],d=>{postImageData=d;$('postFileName').textContent=e.target.files[0].name});
+$('storyPhoto').onchange=e=>compressImage(e.target.files[0],d=>{storyImageData=d;$('storyFileName').textContent=e.target.files[0].name});
 window.onNativePostsLoaded = raw => {
   try {
     const rows = JSON.parse(raw || '[]');
@@ -155,14 +156,12 @@ window.onNativePostResult = raw => {
 $('publishPost').onclick=()=>{
   const text=$('postText').value.trim();
   if(!text&&!postImageData){toast('Write something or add a photo first');return}
-  if(window.LillyNative){
-    if(postImageData){toast('Online photo posts need Firebase Storage setup; text will be posted online.');}
-    if(!text){toast('Add text too; photo-only online posts are not available yet');return}
-    window.LillyNative.createPost(text); return;
-  }
+  if(window.LillyNative){window.LillyNative.createPostWithMedia(text,postImageData||'');return}
   state.posts.unshift({id:uid(),userId:currentUser,text,image:postImageData,created:Date.now(),likes:[],comments:[]});save();$('postText').value='';$('postPhoto').value='';$('postFileName').textContent='';postImageData='';toast('Post published ✦');go('home');renderAll()
 };
-$('publishStory').onclick=()=>{const text=$('storyText').value.trim();if(!text&&!storyImageData){toast('Add a thought or photo first');return}state.stories.unshift({id:uid(),userId:currentUser,text,image:storyImageData,created:Date.now()});save();$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦');go('home');renderAll()};
+window.onNativeStoryResult=raw=>{let r;try{r=JSON.parse(raw)}catch(_){toast('Story response error');return}if(!r.ok){toast(r.message||'Story failed');return}$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast(r.message||'Story added');if(window.LillyNative)window.LillyNative.loadStories();go('home')};
+window.onNativeStoriesLoaded=raw=>{try{const rows=JSON.parse(raw||'[]');state.stories=rows.map(s=>({id:s.id,userId:s.authorId,text:s.text||'',image:s.mediaURL||'',created:Number(s.createdAt)||Date.now()}));save();renderStories()}catch(_){toast('Could not load online stories')}};
+$('publishStory').onclick=()=>{const text=$('storyText').value.trim();if(!text&&!storyImageData){toast('Add a thought or photo first');return}if(window.LillyNative){window.LillyNative.createStory(text,storyImageData||'');return}state.stories.unshift({id:uid(),userId:currentUser,text,image:storyImageData,created:Date.now()});save();$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦');go('home');renderAll()};
 function timeAgo(t){let m=Math.max(1,Math.floor((Date.now()-t)/60000));if(m<60)return m+'m ago';let h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
 function renderStories(){state.stories=state.stories.filter(s=>Date.now()-s.created<86400000);const all=[{id:'own',userId:currentUser,text:'Add your story',image:user().photo,created:Date.now(),own:true},...state.stories];$('stories').innerHTML=all.map(s=>{let u=state.users.find(x=>x.id===s.userId)||user();return `<div class="story" onclick="${s.own?"go('post')":`viewStory('${s.id}')`}"><div class="story-ring"><div class="story-inner">${s.image?`<img src="${s.image}" alt="">`:'✦'}</div></div><div>${s.own?'Your story':esc(u.name.split(' ')[0])}</div></div>`}).join('')}
 function viewStory(id){const s=state.stories.find(x=>x.id===id);if(s)alert((s.text||'A LillyBD moment')+(s.image?'\n\nPhoto story':'')+'\n\n'+timeAgo(s.created))}
