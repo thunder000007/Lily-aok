@@ -1,6 +1,12 @@
 package com.lillybd.app;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Looper;
 import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
@@ -23,6 +29,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private String pendingLocationChatId = null;
+    private LocationListener pendingLocationListener = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +61,7 @@ public class MainActivity extends Activity {
                 u.put("email", user.getEmail() == null ? "" : user.getEmail());
                 u.put("name", user.getDisplayName() == null ? "" : user.getDisplayName());
                 u.put("photoURL", user.getPhotoUrl() == null ? "" : user.getPhotoUrl().toString());
+                u.put("emailVerified", user.isEmailVerified());
                 result.put("user", u);
             }
             final String json = result.toString();
@@ -92,7 +101,8 @@ public class MainActivity extends Activity {
                                     .setDisplayName(cleanName).build();
                             user.updateProfile(request).addOnCompleteListener(profileTask -> {
                                 saveProfile(user, cleanName);
-                                sendResult(true, "Account created", user);
+                                user.sendEmailVerification();
+                                sendResult(true, "Account created. Check your email to verify it.", user);
                             });
                         } else sendResult(false, "Could not create account", null);
                     } else sendResult(false, task.getException() == null ?
@@ -106,11 +116,65 @@ public class MainActivity extends Activity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
                         FirebaseUser user = task.getResult().getUser();
-                        saveProfile(user, null);
-                        sendResult(true, "Logged in", user);
+                        user.reload().addOnCompleteListener(reloadTask -> {
+                            FirebaseUser refreshed = auth.getCurrentUser();
+                            saveProfile(refreshed, null);
+                            sendResult(true, "Logged in", refreshed);
+                        });
                     } else sendResult(false, task.getException() == null ?
                         "Login failed" : task.getException().getLocalizedMessage(), null);
                 });
+        }
+
+        @JavascriptInterface
+        public void loadAdminUsers() {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com")) {
+                sendAdminResult("{\"ok\":false,\"message\":\"Admin access denied. Verify the admin email first.\"}");
+                return;
+            }
+            db.collection("users").limit(200).get().addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || task.getResult() == null) {
+                    sendAdminResult("{\"ok\":false,\"message\":\"Could not load users. Publish the updated Firestore rules.\"}");
+                    return;
+                }
+                org.json.JSONArray users = new org.json.JSONArray();
+                for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                    try {
+                        JSONObject u = new JSONObject();
+                        u.put("uid", doc.getId());
+                        u.put("name", doc.getString("name") == null ? "LillyBD User" : doc.getString("name"));
+                        u.put("email", doc.getString("email") == null ? "" : doc.getString("email"));
+                        u.put("blocked", Boolean.TRUE.equals(doc.getBoolean("blocked")));
+                        users.put(u);
+                    } catch (Exception ignored) { }
+                }
+                sendAdminResult("{\"ok\":true,\"users\":" + users.toString() + "}");
+            });
+        }
+
+        @JavascriptInterface
+        public void setUserBlocked(String uid, boolean blocked) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com") ||
+                uid == null || uid.trim().isEmpty() || uid.equals(me.getUid())) {
+                sendAdminResult("{\"ok\":false,\"message\":\"Admin access denied or invalid user.\"}");
+                return;
+            }
+            db.collection("users").document(uid).update("blocked", blocked)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) loadAdminUsers();
+                    else sendAdminResult("{\"ok\":false,\"message\":\"Could not update user status. Check Firestore rules.\"}");
+                });
+        }
+
+        private void sendAdminResult(String json) {
+            runOnUiThread(() -> {
+                if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeAdminUsers && window.onNativeAdminUsers(" + JSONObject.quote(json) + ");", null);
+            });
         }
 
         @JavascriptInterface
@@ -202,6 +266,68 @@ public class MainActivity extends Activity {
                     }
                     sendMessages(arr.toString());
                 });
+        }
+
+        @JavascriptInterface
+        public void finishLocationRequest() { acquireAndSendLocation(); }
+
+        @JavascriptInterface
+        public void shareLocation(String chatId) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || chatId == null || chatId.trim().isEmpty()) return;
+            pendingLocationChatId = chatId;
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                    && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION}, 7201);
+                } else acquireAndSendLocation();
+            });
+        }
+
+        private void acquireAndSendLocation() {
+            String chatId = pendingLocationChatId;
+            if (chatId == null) return;
+            try {
+                LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                Location best = null;
+                for (String provider : new String[]{LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
+                    try {
+                        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                            && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) break;
+                        Location loc = lm.getLastKnownLocation(provider);
+                        if (loc != null && (best == null || loc.getTime() > best.getTime())) best = loc;
+                    } catch (Exception ignored) { }
+                }
+                if (best != null && System.currentTimeMillis() - best.getTime() < 10 * 60 * 1000) {
+                    String link = "https://maps.google.com/?q=" + best.getLatitude() + "," + best.getLongitude();
+                    pendingLocationChatId = null;
+                    new LillyBridge().sendMessage(chatId, "📍 My location: " + link);
+                    return;
+                }
+                final String targetChat = chatId;
+                pendingLocationListener = new LocationListener() {
+                    @Override public void onLocationChanged(Location location) {
+                        try { lm.removeUpdates(this); } catch (Exception ignored) { }
+                        pendingLocationListener = null;
+                        pendingLocationChatId = null;
+                        String link = "https://maps.google.com/?q=" + location.getLatitude() + "," + location.getLongitude();
+                        new LillyBridge().sendMessage(targetChat, "📍 My location: " + link);
+                    }
+                    @Override public void onProviderEnabled(String provider) { }
+                    @Override public void onProviderDisabled(String provider) { }
+                    @SuppressWarnings("deprecation")
+                    @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) { }
+                };
+                String provider = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+                lm.requestLocationUpdates(provider, 1000L, 0f, pendingLocationListener, Looper.getMainLooper());
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Waiting for location…');", null);
+            } catch (SecurityException e) {
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission is required.');", null);
+            } catch (Exception e) {
+                webView.evaluateJavascript("window.onNativeLocationStatus && window.onNativeLocationStatus('Could not get location. Turn on device location and try again.');", null);
+            }
         }
 
         @JavascriptInterface
@@ -404,6 +530,23 @@ public class MainActivity extends Activity {
         public void logout() {
             auth.signOut();
             sendResult(true, "Logged out", null);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 7201) {
+            boolean granted = false;
+            for (int result : grantResults) if (result == PackageManager.PERMISSION_GRANTED) granted = true;
+            if (granted) {
+                if (webView != null) webView.evaluateJavascript(
+                    "window.LillyNative && window.LillyNative.finishLocationRequest && window.LillyNative.finishLocationRequest();", null);
+            } else {
+                pendingLocationChatId = null;
+                if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission denied.');", null);
+            }
         }
     }
 
