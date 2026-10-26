@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
         if (user == null) return;
         Map<String, Object> profile = new HashMap<>();
         profile.put("uid", user.getUid());
-        profile.put("email", user.getEmail() == null ? "" : user.getEmail());
+        profile.put("email", user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase());
         profile.put("name", (name != null && !name.trim().isEmpty()) ? name.trim() :
             (user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName()));
         profile.put("photoURL", user.getPhotoUrl() == null ? "" : user.getPhotoUrl().toString());
@@ -132,6 +132,7 @@ public class MainActivity extends Activity {
                     }
                     Map<String,Object> chat = new HashMap<>();
                     chat.put("participants", java.util.Arrays.asList(me.getUid(), otherId));
+                    Map<String,Object> names = new HashMap<>(); names.put(me.getUid(), me.getDisplayName() == null ? "LillyBD User" : me.getDisplayName()); names.put(otherId, otherName == null ? targetEmail : otherName); chat.put("participantNames", names);
                     chat.put("updatedAt", FieldValue.serverTimestamp());
                     chat.put("lastMessage", "");
                     db.collection("chats").add(chat).addOnCompleteListener(created -> {
@@ -140,6 +141,35 @@ public class MainActivity extends Activity {
                     });
                 });
             });
+        }
+
+        @JavascriptInterface
+        public void loadChats() {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null) { sendChats("[]"); return; }
+            db.collection("chats").whereArrayContains("participants", me.getUid()).get().addOnCompleteListener(task -> {
+                org.json.JSONArray arr = new org.json.JSONArray();
+                if (task.isSuccessful() && task.getResult() != null) {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        try {
+                            java.util.List<String> ids = (java.util.List<String>) doc.get("participants");
+                            if (ids == null || ids.size() != 2) continue;
+                            Map<String,Object> names = (Map<String,Object>) doc.get("participantNames");
+                            String other = ids.get(0).equals(me.getUid()) ? ids.get(1) : ids.get(0);
+                            String name = names == null ? "LillyBD User" : String.valueOf(names.containsKey(other) ? names.get(other) : "LillyBD User");
+                            JSONObject item = new JSONObject(); item.put("id", doc.getId()); item.put("name", name);
+                            item.put("lastMessage", doc.getString("lastMessage") == null ? "" : doc.getString("lastMessage"));
+                            arr.put(item);
+                        } catch (Exception ignored) { }
+                    }
+                }
+                sendChats(arr.toString());
+            });
+        }
+
+        private void sendChats(String json) {
+            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                "window.onNativeChatsLoaded && window.onNativeChatsLoaded(" + JSONObject.quote(json) + ");", null); });
         }
 
         @JavascriptInterface
