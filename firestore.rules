@@ -22,9 +22,28 @@ service cloud.firestore {
         && request.resource.data.likeUids is list
         && request.resource.data.likeUids.size() == 0;
       allow update: if signedIn()
-        && resource.data.authorId == request.auth.uid
         && request.resource.data.authorId == resource.data.authorId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'mediaURL', 'likeUids']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'mediaURL', 'likeUids'])
+        && (
+          resource.data.authorId == request.auth.uid
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeUids'])
+            && request.resource.data.likeUids is list
+            && resource.data.likeUids is list
+            && (
+              (
+                request.resource.data.likeUids.size() == resource.data.likeUids.size() + 1
+                && request.resource.data.likeUids.hasAll(resource.data.likeUids)
+                && request.auth.uid in request.resource.data.likeUids
+              )
+              || (
+                request.resource.data.likeUids.size() == resource.data.likeUids.size() - 1
+                && resource.data.likeUids.hasAll(request.resource.data.likeUids)
+                && request.auth.uid in resource.data.likeUids
+              )
+            )
+          )
+        );
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
     }
 
