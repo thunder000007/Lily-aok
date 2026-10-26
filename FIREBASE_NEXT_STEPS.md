@@ -8,6 +8,7 @@ Work is on the `firebase-integration` branch. The intended product is an Android
 - Successful sign-in writes/updates the user's basic profile in Firestore.
 - Text posts can be created and the feed loaded from Firestore.
 - Post likes use Firestore array updates.
+- Direct conversations and text messages have Firestore-backed code paths; chats are started using the other user's registered email.
 - AndroidX is enabled for Firebase dependencies.
 
 ## Remaining before this can be called working
@@ -15,8 +16,9 @@ Work is on the `firebase-integration` branch. The intended product is an Android
 2. Create/initialize **Cloud Firestore** if it is not already initialized.
 3. Review and deploy `firestore.rules` only after checking them against the app. The repository rules are not deployed by these code commits.
 4. Configure Google sign-in in Firebase Console, including the Android SHA fingerprints/OAuth client, then implement and test the native Google sign-in flow.
-5. Move stories, comments, profile edits, photos/media, and direct messages from local-only behavior to Firestore/Storage. These features are not yet fully cloud-backed.
-6. Test on a real Android phone with a Firebase account that can access the project.
+5. Move stories, comments, profile edits, profile photos and post/story media from local-only behavior to Firestore/Storage.
+6. Implement Google sign-in after the OAuth client and SHA fingerprints are configured in Firebase Console.
+7. Test sign-up, login, post/feed, likes, and cross-device direct messages on two real Android phones.
 
 ## Build
 The GitHub Actions workflow builds a debug APK on pushes to this branch and uploads it as an artifact for 14 days when successful. Check the latest run from the repository Actions page.
