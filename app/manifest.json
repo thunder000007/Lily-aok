@@ -1,0 +1,10 @@
+{
+  "name": "LilyBD Social",
+  "short_name": "LilyBD",
+  "description": "LilyBD social network prototype",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f6fb",
+  "theme_color": "#7657f6",
+  "icons": []
+}
