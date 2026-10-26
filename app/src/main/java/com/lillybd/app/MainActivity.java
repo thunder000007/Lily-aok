@@ -108,6 +108,100 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void startChat(String email) {
+            FirebaseUser me = auth.getCurrentUser();
+            String targetEmail = email == null ? "" : email.trim().toLowerCase();
+            if (me == null || targetEmail.isEmpty() || targetEmail.equalsIgnoreCase(me.getEmail())) {
+                sendChatResult(false, "Enter another user's registered email", null, null);
+                return;
+            }
+            db.collection("users").whereEqualTo("email", targetEmail).limit(1).get().addOnCompleteListener(find -> {
+                if (!find.isSuccessful() || find.getResult() == null || find.getResult().isEmpty()) {
+                    sendChatResult(false, "User not found. They must sign in to LillyBD first.", null, null); return;
+                }
+                String otherId = find.getResult().getDocuments().get(0).getId();
+                String otherName = find.getResult().getDocuments().get(0).getString("name");
+                db.collection("chats").whereArrayContains("participants", me.getUid()).get().addOnCompleteListener(existing -> {
+                    if (existing.isSuccessful() && existing.getResult() != null) {
+                        for (com.google.firebase.firestore.DocumentSnapshot doc : existing.getResult().getDocuments()) {
+                            java.util.List<String> ids = (java.util.List<String>) doc.get("participants");
+                            if (ids != null && ids.contains(otherId) && ids.size() == 2) {
+                                sendChatResult(true, "Conversation opened", doc.getId(), otherName); return;
+                            }
+                        }
+                    }
+                    Map<String,Object> chat = new HashMap<>();
+                    chat.put("participants", java.util.Arrays.asList(me.getUid(), otherId));
+                    chat.put("updatedAt", FieldValue.serverTimestamp());
+                    chat.put("lastMessage", "");
+                    db.collection("chats").add(chat).addOnCompleteListener(created -> {
+                        if (created.isSuccessful()) sendChatResult(true, "Conversation created", created.getResult().getId(), otherName);
+                        else sendChatResult(false, "Could not create conversation", null, null);
+                    });
+                });
+            });
+        }
+
+        @JavascriptInterface
+        public void loadMessages(String chatId) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || chatId == null || chatId.trim().isEmpty()) { sendMessages("[]"); return; }
+            db.collection("chats").document(chatId).collection("messages")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.ASCENDING).limit(200).get()
+                .addOnCompleteListener(task -> {
+                    org.json.JSONArray arr = new org.json.JSONArray();
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                            try {
+                                JSONObject m = new JSONObject();
+                                m.put("id", doc.getId());
+                                m.put("text", doc.getString("text") == null ? "" : doc.getString("text"));
+                                m.put("senderId", doc.getString("senderId") == null ? "" : doc.getString("senderId"));
+                                Object when = doc.get("createdAt");
+                                m.put("time", when instanceof com.google.firebase.Timestamp ?
+                                    ((com.google.firebase.Timestamp) when).toDate().getTime() : System.currentTimeMillis());
+                                arr.put(m);
+                            } catch (Exception ignored) { }
+                        }
+                    }
+                    sendMessages(arr.toString());
+                });
+        }
+
+        @JavascriptInterface
+        public void sendMessage(String chatId, String text) {
+            FirebaseUser me = auth.getCurrentUser();
+            String clean = text == null ? "" : text.trim();
+            if (me == null || chatId == null || clean.isEmpty() || clean.length() > 5000) return;
+            Map<String,Object> message = new HashMap<>();
+            message.put("senderId", me.getUid());
+            message.put("text", clean);
+            message.put("createdAt", FieldValue.serverTimestamp());
+            db.collection("chats").document(chatId).collection("messages").add(message).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    db.collection("chats").document(chatId).update("lastMessage", clean, "updatedAt", FieldValue.serverTimestamp());
+                    loadMessages(chatId);
+                } else sendChatResult(false, "Message failed to send", null, null);
+            });
+        }
+
+        private void sendChatResult(boolean ok, String message, String chatId, String name) {
+            try {
+                JSONObject result = new JSONObject();
+                result.put("ok", ok); result.put("message", message == null ? "" : message);
+                result.put("chatId", chatId == null ? "" : chatId); result.put("name", name == null ? "" : name);
+                String json = result.toString();
+                runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeChatResult && window.onNativeChatResult(" + JSONObject.quote(json) + ");", null); });
+            } catch (Exception ignored) { }
+        }
+
+        private void sendMessages(String json) {
+            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                "window.onNativeMessagesLoaded && window.onNativeMessagesLoaded(" + JSONObject.quote(json) + ");", null); });
+        }
+
+        @JavascriptInterface
         public void createPost(String text) {
             FirebaseUser user = auth.getCurrentUser();
             String cleanText = text == null ? "" : text.trim();
