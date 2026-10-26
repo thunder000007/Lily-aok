@@ -44,7 +44,21 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(false);
         webView.addJavascriptInterface(new LillyBridge(), "LillyNative");
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // Restore the Firebase session into the web UI whenever the app opens.
+                // FirebaseAuth persists the signed-in user across app restarts; the HTML
+                // screen must be notified or it will incorrectly show the login form.
+                if (url != null && url.startsWith("file:///android_asset/index.html")) {
+                    FirebaseUser signedInUser = auth.getCurrentUser();
+                    if (signedInUser != null) {
+                        sendResult(true, "Session restored", signedInUser);
+                    }
+                }
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
