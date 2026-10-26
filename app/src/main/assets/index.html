@@ -64,10 +64,10 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
     </section>
     <section class="page" id="messagePage">
       <h2>Messages</h2><p>Say hello to someone on LillyBD.</p>
-      <div class="card"><div class="section-title">Start a conversation</div><input class="field" id="newChatName" placeholder="Person's name"><button class="btn full" id="startChat">＋ New message</button></div>
+      <div class="card"><div class="section-title">Start a conversation</div><input class="field" id="newChatName" placeholder="Friend registered email"><button class="btn full" id="startChat">＋ New message</button></div>
       <div class="section-title">Your chats</div><div class="message-list" id="chatList"></div>
-      <div class="card hidden" id="chatPanel"><div class="row between"><div class="row"><div class="avatar" id="chatAvatar">?</div><div><strong id="chatTitle">Chat</strong><div class="small">Private demo conversation</div></div></div><button class="iconbtn" id="closeChat">×</button></div><div class="chatwindow" id="chatWindow"></div><form class="sendrow" id="sendForm"><input class="field" id="messageInput" placeholder="Write a message..." required><button class="btn" type="submit">➤</button></form></div>
-      <p class="small">Messages in this demo are stored on this device. Real cross-device messaging needs a server.</p>
+      <div class="card hidden" id="chatPanel"><div class="row between"><div class="row"><div class="avatar" id="chatAvatar">?</div><div><strong id="chatTitle">Chat</strong><div class="small">Private conversation</div></div></div><button class="iconbtn" id="closeChat">×</button></div><div class="chatwindow" id="chatWindow"></div><form class="sendrow" id="sendForm"><input class="field" id="messageInput" placeholder="Write a message..." required><button class="btn" type="submit">➤</button></form></div>
+      <p class="small">Online messages require both accounts to be registered and Firestore rules to be deployed.</p>
     </section>
     <section class="page" id="profilePage">
       <div class="card">
@@ -94,6 +94,9 @@ const $=id=>document.getElementById(id);
 const DB='lillybd_demo_v1';
 let state=load(), currentUser=null, authMode='signup', activeChat=null, postImageData='', storyImageData='';
 state.users=Array.isArray(state.users)?state.users:[];state.posts=Array.isArray(state.posts)?state.posts:[];state.stories=Array.isArray(state.stories)?state.stories:[];state.chats=Array.isArray(state.chats)?state.chats:[];
+// Remove legacy demo passwords that older builds stored in localStorage.
+state.users.forEach(u=>{if(u&&typeof u==='object')delete u.password});
+save();
 function load(){try{return JSON.parse(localStorage.getItem(DB))||{users:[],posts:[],stories:[],chats:[]}}catch(e){return{users:[],posts:[],stories:[],chats:[]}}}
 function save(){localStorage.setItem(DB,JSON.stringify(state))}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -104,21 +107,61 @@ function avatarHTML(u,size=''){return u&&u.photo?`<img src="${u.photo}" alt="">`
 function renderAvatar(el,u){el.innerHTML=avatarHTML(u)}
 function setAuth(mode){authMode=mode;$('authTitle').textContent=mode==='signup'?'Welcome to LillyBD':'Welcome back';$('authSub').textContent=mode==='signup'?'Create an account and share your moments.':'Log in to your LillyBD account.';$('authName').classList.toggle('hidden',mode==='login');$('authName').required=mode==='signup';$('authSubmit').textContent=mode==='signup'?'Create account':'Log in';$('switchText').textContent=mode==='signup'?'Already have an account?':"Don't have an account?";$('switchAuth').textContent=mode==='signup'?'Log in':'Sign up'}
 $('switchAuth').onclick=()=>setAuth(authMode==='signup'?'login':'signup');
-$('googleSignIn').onclick=()=>{
-  toast('Google login setup needed: connect a Firebase project first.');
-  alert('Continue with Google requires Firebase setup. Your email/password sign-up and login should work offline in this demo. To activate Google login, add your Firebase web config and enable Google in Firebase Authentication.');
+window.onNativeAuthResult = raw => {
+  let result;
+  try { result = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { toast('Could not read sign-in response'); return; }
+  if (!result || !result.ok) { toast((result && result.message) || 'Authentication failed'); return; }
+  if (!result.user) { currentUser=null; activeChat=null; $('mainView').classList.add('hidden'); $('bottomNav').classList.add('hidden'); $('authView').classList.remove('hidden'); $('authForm').reset(); setAuth('login'); toast('Logged out'); return; }
+  const u=result.user;
+  let local=state.users.find(x=>x.id===u.uid);
+  if (!local) { local={id:u.uid,name:u.name||u.email.split('@')[0],email:u.email,bio:'Welcome to my LillyBD profile ✦',photo:u.photoURL||'',following:[],social:{}}; state.users.push(local); }
+  else { local.name=u.name||local.name; local.email=u.email; local.photo=u.photoURL||local.photo||''; }
+  delete local.password;
+  currentUser=u.uid; save(); enterApp(); toast(result.message||'Signed in');
 };
-$('authForm').onsubmit=e=>{e.preventDefault();const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;if(password.length<4){toast('Password must be at least 4 characters');return}let found=state.users.find(u=>(u.email||'').toLowerCase()===email);if(authMode==='signup'){if(found){toast('Account already exists. Please log in.');return}const name=$('authName').value.trim();if(!name){toast('Please enter your name');return}const u={id:uid(),name,email,password,bio:'Welcome to my LillyBD profile ✦',photo:'',following:[],social:{}};state.users.push(u);currentUser=u.id;save();enterApp();toast('Welcome to LillyBD!')}else{if(!found||found.password!==password){toast('Email or password is incorrect');return}currentUser=found.id;enterApp();toast('You are logged in')}};
-function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll()}
-function logout(){currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
+$('googleSignIn').onclick=()=>toast('Google sign-in needs OAuth setup in Firebase Console first.');
+$('authForm').onsubmit=e=>{
+  e.preventDefault();
+  const email=$('authEmail').value.trim(), password=$('authPassword').value;
+  if(password.length<6){toast('Password must be at least 6 characters');return}
+  if(!window.LillyNative){toast('Firebase authentication is unavailable in this app build');return}
+  if(authMode==='signup'){
+    const name=$('authName').value.trim();
+    if(!name){toast('Please enter your name');return}
+    window.LillyNative.signUp(name,email,password);
+  } else { window.LillyNative.login(email,password); }
+};
+function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats();window.LillyNative.loadStories()}}
+function logout(){if(window.LillyNative){window.LillyNative.logout();return}currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
 $('topAction').onclick=()=>toast('You are all caught up ✦');
 function readFile(file,cb){if(!file)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
-$('postPhoto').onchange=e=>readFile(e.target.files[0],d=>{postImageData=d;$('postFileName').textContent=e.target.files[0].name});
-$('storyPhoto').onchange=e=>readFile(e.target.files[0],d=>{storyImageData=d;$('storyFileName').textContent=e.target.files[0].name});
-$('publishPost').onclick=()=>{const text=$('postText').value.trim();if(!text&&!postImageData){toast('Write something or add a photo first');return}state.posts.unshift({id:uid(),userId:currentUser,text,image:postImageData,created:Date.now(),likes:[],comments:[]});save();$('postText').value='';$('postPhoto').value='';$('postFileName').textContent='';postImageData='';toast('Post published ✦');go('home');renderAll()};
-$('publishStory').onclick=()=>{const text=$('storyText').value.trim();if(!text&&!storyImageData){toast('Add a thought or photo first');return}state.stories.unshift({id:uid(),userId:currentUser,text,image:storyImageData,created:Date.now()});save();$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦');go('home');renderAll()};
+function compressImage(file,cb){if(!file)return;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);cb(canvas.toDataURL('image/jpeg',0.78))};img.onerror=()=>toast('Could not read that image');img.src=reader.result};reader.readAsDataURL(file)}
+$('postPhoto').onchange=e=>compressImage(e.target.files[0],d=>{postImageData=d;$('postFileName').textContent=e.target.files[0].name});
+$('storyPhoto').onchange=e=>compressImage(e.target.files[0],d=>{storyImageData=d;$('storyFileName').textContent=e.target.files[0].name});
+window.onNativePostsLoaded = raw => {
+  try {
+    const rows = JSON.parse(raw || '[]');
+    state.posts = rows.map(p => ({id:p.id,userId:p.authorId,text:p.text||'',image:p.mediaURL||'',created:Number(p.createdAt)||Date.now(),likes:Array.isArray(p.likeUids)?p.likeUids:[],comments:[]}));
+    save(); renderFeed(); renderProfile();
+  } catch (_) { toast('Could not load online posts'); }
+};
+window.onNativePostResult = raw => {
+  let result; try { result=JSON.parse(raw); } catch (_) { toast('Post response error'); return; }
+  if (!result.ok) { toast(result.message||'Post failed'); return; }
+  $('postText').value=''; $('postPhoto').value=''; $('postFileName').textContent=''; postImageData='';
+  toast(result.message||'Post published'); if(window.LillyNative) window.LillyNative.loadPosts(); go('home');
+};
+$('publishPost').onclick=()=>{
+  const text=$('postText').value.trim();
+  if(!text&&!postImageData){toast('Write something or add a photo first');return}
+  if(window.LillyNative){window.LillyNative.createPostWithMedia(text,postImageData||'');return}
+  state.posts.unshift({id:uid(),userId:currentUser,text,image:postImageData,created:Date.now(),likes:[],comments:[]});save();$('postText').value='';$('postPhoto').value='';$('postFileName').textContent='';postImageData='';toast('Post published ✦');go('home');renderAll()
+};
+window.onNativeStoryResult=raw=>{let r;try{r=JSON.parse(raw)}catch(_){toast('Story response error');return}if(!r.ok){toast(r.message||'Story failed');return}$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast(r.message||'Story added');if(window.LillyNative)window.LillyNative.loadStories();go('home')};
+window.onNativeStoriesLoaded=raw=>{try{const rows=JSON.parse(raw||'[]');state.stories=rows.map(s=>({id:s.id,userId:s.authorId,text:s.text||'',image:s.mediaURL||'',created:Number(s.createdAt)||Date.now()}));save();renderStories()}catch(_){toast('Could not load online stories')}};
+$('publishStory').onclick=()=>{const text=$('storyText').value.trim();if(!text&&!storyImageData){toast('Add a thought or photo first');return}if(window.LillyNative){window.LillyNative.createStory(text,storyImageData||'');return}state.stories.unshift({id:uid(),userId:currentUser,text,image:storyImageData,created:Date.now()});save();$('storyText').value='';$('storyPhoto').value='';$('storyFileName').textContent='';storyImageData='';toast('Story added for 24 hours ✦');go('home');renderAll()};
 function timeAgo(t){let m=Math.max(1,Math.floor((Date.now()-t)/60000));if(m<60)return m+'m ago';let h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
 function renderStories(){state.stories=state.stories.filter(s=>Date.now()-s.created<86400000);const all=[{id:'own',userId:currentUser,text:'Add your story',image:user().photo,created:Date.now(),own:true},...state.stories];$('stories').innerHTML=all.map(s=>{let u=state.users.find(x=>x.id===s.userId)||user();return `<div class="story" onclick="${s.own?"go('post')":`viewStory('${s.id}')`}"><div class="story-ring"><div class="story-inner">${s.image?`<img src="${s.image}" alt="">`:'✦'}</div></div><div>${s.own?'Your story':esc(u.name.split(' ')[0])}</div></div>`}).join('')}
 function viewStory(id){const s=state.stories.find(x=>x.id===id);if(s)alert((s.text||'A LillyBD moment')+(s.image?'\n\nPhoto story':'')+'\n\n'+timeAgo(s.created))}
@@ -128,7 +171,7 @@ function renderProfile(){const u=user();u.following=u.following||[];u.social=u.s
 function renderAll(){renderFeed();renderProfile();renderChats()}
 function renderPeople(){const others=state.users.filter(x=>x.id!==currentUser);$('peopleList').innerHTML=others.length?others.map(x=>{const following=(user().following||[]).includes(x.id);return `<div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row" style="min-width:0"><div class="avatar">${avatarHTML(x)}</div><div style="min-width:0"><strong>${esc(x.name)}</strong><div class="small">${state.users.filter(y=>(y.following||[]).includes(x.id)).length} followers</div></div></div><button class="btn ${following?'ghost':''} smallbtn" onclick="toggleFollow('${x.id}')">${following?'Following ✓':'＋ Follow'}</button></div>`}).join(''):'<div class="small" style="padding:12px 0">No other accounts yet. Log out and create another account on this device to try following.</div>'}
 function toggleFollow(id){if(id===currentUser)return;const u=user();u.following=u.following||[];if(u.following.includes(id)){u.following=u.following.filter(x=>x!==id);toast('Unfollowed account')}else{u.following.push(id);toast('Following ✦')}save();renderAll()}
-function likePost(id){const p=state.posts.find(p=>p.id===id);if(!p)return;p.likes=p.likes||[];p.likes=p.likes.includes(currentUser)?p.likes.filter(x=>x!==currentUser):[...p.likes,currentUser];save();renderFeed();renderProfile()}
+function likePost(id){const p=state.posts.find(p=>p.id===id);if(!p)return;p.likes=p.likes||[];const liked=p.likes.includes(currentUser);if(window.LillyNative){window.LillyNative.togglePostLike(id,liked);return}p.likes=liked?p.likes.filter(x=>x!==currentUser):[...p.likes,currentUser];save();renderFeed();renderProfile()}
 function commentPost(id){const text=prompt('Write a comment');if(!text||!text.trim())return;const p=state.posts.find(p=>p.id===id);p.comments.push({name:user().name,text:text.trim()});save();renderFeed();renderProfile()}
 function sharePost(id){const p=state.posts.find(p=>p.id===id);if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText((p.text||'LillyBD post')+' — LillyBD').then(()=>toast('Post text copied')).catch(()=>toast('Nice post ✦'));else toast('Nice post ✦')}
 function deletePost(id){if(!confirm('Delete this post?'))return;state.posts=state.posts.filter(p=>p.id!==id);save();renderAll();toast('Post deleted')}
@@ -137,12 +180,15 @@ $('cancelEdit').onclick=()=>$('editBox').classList.add('hidden');
 $('saveProfile').onclick=()=>{let n=$('editName').value.trim();if(!n){toast('Name cannot be empty');return}const u=user();u.name=n;u.bio=$('editBio').value.trim();const cleanLink=id=>{let v=$(id).value.trim();if(!v)return '';if(!/^https?:\/\//i.test(v)){toast('Social links must start with https:// or http://');return null}return v};const social={instagram:cleanLink('linkInstagram'),facebook:cleanLink('linkFacebook'),tiktok:cleanLink('linkTikTok'),youtube:cleanLink('linkYouTube'),other:cleanLink('linkOther')};if(Object.values(social).some(v=>v===null))return;u.social=social;save();$('editBox').classList.add('hidden');renderAll();toast('Profile updated')};
 $('profilePhoto').onchange=e=>readFile(e.target.files[0],d=>{user().photo=d;save();renderAll();toast('Profile photo updated')});
 $('logoutBtn').onclick=()=>{if(confirm('Log out of LillyBD?'))logout()};
-$('startChat').onclick=()=>{let name=$('newChatName').value.trim();if(!name){toast('Enter a name first');return}let c=state.chats.find(c=>c.owner===currentUser&&c.name.toLowerCase()===name.toLowerCase());if(!c){c={id:uid(),owner:currentUser,name,messages:[]};state.chats.unshift(c);save()}$('newChatName').value='';openChat(c.id);renderChats()};
+window.onNativeChatResult=raw=>{let r;try{r=JSON.parse(raw)}catch(_){toast('Chat response error');return}if(!r.ok){toast(r.message||'Chat failed');return}if(r.chatId){let c=state.chats.find(x=>x.id===r.chatId);if(!c){c={id:r.chatId,owner:currentUser,name:r.name||'LillyBD User',messages:[]};state.chats.unshift(c)}else c.name=r.name||c.name;save();activeChat=c.id;openChat(c.id);renderChats();if(window.LillyNative)window.LillyNative.loadChats()}else toast(r.message||'Chat action failed')};
+window.onNativeChatsLoaded=raw=>{try{const rows=JSON.parse(raw||'[]');const mine=rows.map(x=>({id:x.id,owner:currentUser,name:x.name||'LillyBD User',messages:[],lastMessage:x.lastMessage||''}));const old=state.chats.filter(x=>x.owner!==currentUser);state.chats=[...mine,...old];save();renderChats()}catch(_){}};
+window.onNativeMessagesLoaded=raw=>{try{const rows=JSON.parse(raw||'[]');const c=state.chats.find(x=>x.id===activeChat);if(!c)return;c.messages=rows.map(m=>({text:m.text,mine:m.senderId===currentUser,time:m.time}));renderChatMessages();renderChats()}catch(_){}};
+$('startChat').onclick=()=>{let name=$('newChatName').value.trim();if(!name){toast('Enter your friend registered email');return}if(window.LillyNative){window.LillyNative.startChat(name);$('newChatName').value='';return}let c=state.chats.find(c=>c.owner===currentUser&&c.name.toLowerCase()===name.toLowerCase());if(!c){c={id:uid(),owner:currentUser,name,messages:[]};state.chats.unshift(c);save()}$('newChatName').value='';openChat(c.id);renderChats()};
 function renderChats(){const list=state.chats.filter(c=>c.owner===currentUser);$('chatList').innerHTML=list.length?list.map(c=>`<div class="chatrow" onclick="openChat('${c.id}')"><div class="avatar">${esc(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><strong>${esc(c.name)}</strong><div class="small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.messages.length?c.messages[c.messages.length-1].text:'Start a conversation')}</div></div><span class="small">›</span></div>`).join(''):'<div class="card empty">No conversations yet. Start a new message above.</div>'}
-function openChat(id){activeChat=id;const c=state.chats.find(c=>c.id===id);if(!c)return;$('chatPanel').classList.remove('hidden');$('chatTitle').textContent=c.name;$('chatAvatar').textContent=c.name.charAt(0).toUpperCase();renderChatMessages();$('chatPanel').scrollIntoView({behavior:'smooth',block:'nearest'})}
+function openChat(id){activeChat=id;const c=state.chats.find(c=>c.id===id);if(!c)return;$('chatPanel').classList.remove('hidden');$('chatTitle').textContent=c.name;$('chatAvatar').textContent=c.name.charAt(0).toUpperCase();renderChatMessages();if(window.LillyNative)window.LillyNative.loadMessages(id);$('chatPanel').scrollIntoView({behavior:'smooth',block:'nearest'})}
 function renderChatMessages(){const c=state.chats.find(c=>c.id===activeChat);if(!c)return;$('chatWindow').innerHTML=c.messages.map(m=>`<div class="bubble ${m.mine?'mine':'theirs'}">${esc(m.text)}<div style="font-size:10px;opacity:.6;margin-top:4px">${timeAgo(m.time)}</div></div>`).join('')||'<div class="empty">Say hello 👋</div>';$('chatWindow').scrollTop=$('chatWindow').scrollHeight}
 $('closeChat').onclick=()=>{$('chatPanel').classList.add('hidden');activeChat=null};
-$('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;const c=state.chats.find(c=>c.id===activeChat);c.messages.push({text,mine:true,time:Date.now()});save();$('messageInput').value='';renderChatMessages();renderChats()};
+$('sendForm').onsubmit=e=>{e.preventDefault();const text=$('messageInput').value.trim();if(!text||!activeChat)return;if(window.LillyNative){window.LillyNative.sendMessage(activeChat,text);$('messageInput').value='';return}const c=state.chats.find(c=>c.id===activeChat);c.messages.push({text,mine:true,time:Date.now()});save();$('messageInput').value='';renderChatMessages();renderChats()};
 setAuth('signup');
 </script>
 </body>

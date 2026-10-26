@@ -1,10 +1,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() {
-      return request.auth != null;
-    }
-
+    function signedIn() { return request.auth != null; }
     function isChatParticipant(chatId) {
       return signedIn()
         && request.auth.uid in firestore.get(
@@ -12,7 +9,6 @@ service firebase.storage {
         ).data.participants;
     }
 
-    // Profile images: any signed-in user may read; only the owner may upload.
     match /users/{userId}/profile/{fileName} {
       allow read: if signedIn();
       allow create, update: if signedIn()
@@ -22,7 +18,24 @@ service firebase.storage {
       allow delete: if signedIn() && request.auth.uid == userId;
     }
 
-    // Chat attachments: only members of the matching chat may access them.
+    match /posts/{userId}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /stories/{userId}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
     match /chats/{chatId}/{fileName} {
       allow read: if isChatParticipant(chatId);
       allow create, update: if isChatParticipant(chatId)
@@ -31,7 +44,6 @@ service firebase.storage {
       allow delete: if isChatParticipant(chatId);
     }
 
-    // Deny any paths not explicitly listed above.
     match /{allPaths=**} {
       allow read, write: if false;
     }

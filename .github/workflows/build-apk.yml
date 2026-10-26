@@ -3,7 +3,7 @@ name: Build LillyBD APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, firebase-integration]
 
 permissions:
   contents: read
@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
