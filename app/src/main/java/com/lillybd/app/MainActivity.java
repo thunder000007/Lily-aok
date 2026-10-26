@@ -108,6 +108,71 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void createPost(String text) {
+            FirebaseUser user = auth.getCurrentUser();
+            String cleanText = text == null ? "" : text.trim();
+            if (user == null || cleanText.isEmpty() || cleanText.length() > 10000) {
+                sendPostResult(false, "Sign in and enter a post first", null);
+                return;
+            }
+            Map<String, Object> post = new HashMap<>();
+            post.put("authorId", user.getUid());
+            post.put("text", cleanText);
+            post.put("mediaURL", "");
+            post.put("likeUids", new java.util.ArrayList<String>());
+            post.put("createdAt", FieldValue.serverTimestamp());
+            db.collection("posts").add(post).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) sendPostResult(true, "Post published", task.getResult().getId());
+                else sendPostResult(false, task.getException() == null ? "Could not publish post" :
+                    task.getException().getLocalizedMessage(), null);
+            });
+        }
+
+        @JavascriptInterface
+        public void loadPosts() {
+            if (auth.getCurrentUser() == null) { sendPosts("[]"); return; }
+            db.collection("posts").orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(50).get().addOnCompleteListener(task -> {
+                    if (!task.isSuccessful() || task.getResult() == null) { sendPosts("[]"); return; }
+                    org.json.JSONArray arr = new org.json.JSONArray();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        try {
+                            JSONObject item = new JSONObject();
+                            item.put("id", doc.getId());
+                            item.put("authorId", doc.getString("authorId"));
+                            item.put("text", doc.getString("text") == null ? "" : doc.getString("text"));
+                            item.put("mediaURL", doc.getString("mediaURL") == null ? "" : doc.getString("mediaURL"));
+                            item.put("likeUids", new org.json.JSONArray(
+                                (java.util.List<String>) doc.get("likeUids") == null ?
+                                new java.util.ArrayList<String>() : (java.util.List<String>) doc.get("likeUids")));
+                            Object created = doc.get("createdAt");
+                            item.put("createdAt", created instanceof com.google.firebase.Timestamp ?
+                                ((com.google.firebase.Timestamp) created).toDate().getTime() : System.currentTimeMillis());
+                            arr.put(item);
+                        } catch (Exception ignored) { }
+                    }
+                    sendPosts(arr.toString());
+                });
+        }
+
+        private void sendPostResult(boolean ok, String message, String postId) {
+            try {
+                JSONObject result = new JSONObject();
+                result.put("ok", ok);
+                result.put("message", message == null ? "" : message);
+                result.put("postId", postId == null ? "" : postId);
+                String json = result.toString();
+                runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                    "window.onNativePostResult && window.onNativePostResult(" + JSONObject.quote(json) + ");", null); });
+            } catch (Exception ignored) { }
+        }
+
+        private void sendPosts(String json) {
+            runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript(
+                "window.onNativePostsLoaded && window.onNativePostsLoaded(" + JSONObject.quote(json) + ");", null); });
+        }
+
+        @JavascriptInterface
         public void logout() {
             auth.signOut();
             sendResult(true, "Logged out", null);
