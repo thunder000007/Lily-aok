@@ -29,6 +29,15 @@ public class MainActivity extends Activity {
     private WebView webView;
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private boolean webPageReady = false;
+    private boolean authStateInitialized = false;
+    private final FirebaseAuth.AuthStateListener authStateListener = firebaseAuth -> {
+        authStateInitialized = true;
+        FirebaseUser signedInUser = firebaseAuth.getCurrentUser();
+        if (webPageReady && signedInUser != null) {
+            sendResult(true, "Session restored", signedInUser);
+        }
+    };
     private String pendingLocationChatId = null;
     private LocationListener pendingLocationListener = null;
 
@@ -36,6 +45,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         auth = FirebaseAuth.getInstance();
+        auth.addAuthStateListener(authStateListener);
         db = FirebaseFirestore.getInstance();
         webView = new WebView(this);
         WebSettings settings = webView.getSettings();
@@ -52,9 +62,12 @@ public class MainActivity extends Activity {
                 // FirebaseAuth persists the signed-in user across app restarts; the HTML
                 // screen must be notified or it will incorrectly show the login form.
                 if (url != null && url.startsWith("file:///android_asset/index.html")) {
-                    FirebaseUser signedInUser = auth.getCurrentUser();
-                    if (signedInUser != null) {
-                        sendResult(true, "Session restored", signedInUser);
+                    webPageReady = true;
+                    // Firebase restores persisted credentials asynchronously. Wait until its
+                    // first auth-state callback before deciding whether a session exists.
+                    if (authStateInitialized) {
+                        FirebaseUser signedInUser = auth.getCurrentUser();
+                        if (signedInUser != null) sendResult(true, "Session restored", signedInUser);
                     }
                 }
             }
@@ -562,6 +575,17 @@ public class MainActivity extends Activity {
                     "window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission denied.');", null);
             }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (auth != null) auth.removeAuthStateListener(authStateListener);
+        if (webView != null) {
+            webView.stopLoading();
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 
     @Override
