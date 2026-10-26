@@ -7,43 +7,60 @@ service cloud.firestore {
 
     function isChatParticipant(chatId) {
       return signedIn()
+        && exists(/databases/$(database)/documents/chats/$(chatId))
         && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
     }
 
-    // Authenticated users can discover profiles. Each user can only modify their own profile.
+    // Public profile fields only. Never store passwords or authentication secrets here.
     match /users/{userId} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == userId;
-      allow delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'bio', 'socialLinks', 'createdAt', 'updatedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'bio', 'socialLinks', 'createdAt', 'updatedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
-    // A chat document must include its creator. Membership changes are not allowed
-    // through ordinary updates; implement and validate invitations separately.
     match /chats/{chatId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow read: if signedIn()
+        && resource.data.participants is list
+        && request.auth.uid in resource.data.participants;
       allow create: if signedIn()
-        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.keys().hasOnly(['participants', 'createdBy', 'createdAt'])
         && request.resource.data.participants is list
-        && request.resource.data.participants.size() >= 2
-        && request.resource.data.participants.size() <= 2;
-      allow update: if signedIn()
-        && request.auth.uid in resource.data.participants
-        && request.resource.data.participants == resource.data.participants;
-      allow delete: if false;
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants[0] != request.resource.data.participants[1]
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      // Membership cannot be changed by clients. Use a trusted backend for invitations/group changes.
+      allow update, delete: if false;
 
       match /messages/{messageId} {
         allow read: if isChatParticipant(chatId);
         allow create: if isChatParticipant(chatId)
+          && request.resource.data.keys().hasOnly(['senderId', 'text', 'createdAt'])
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 5000
-          && request.resource.data.createdAt is timestamp;
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
     }
 
-    // Deny access to all collections not explicitly covered above.
+    // Default deny for every collection not explicitly permitted above.
     match /{document=**} {
       allow read, write: if false;
     }
