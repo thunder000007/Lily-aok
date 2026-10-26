@@ -166,6 +166,57 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void loadAdminUsers() {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com")) {
+                sendAdminResult("{\"ok\":false,\"message\":\"Admin access denied. Verify the admin email first.\"}");
+                return;
+            }
+            db.collection("users").limit(200).get().addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || task.getResult() == null) {
+                    sendAdminResult("{\"ok\":false,\"message\":\"Could not load users. Publish the updated Firestore rules.\"}");
+                    return;
+                }
+                org.json.JSONArray users = new org.json.JSONArray();
+                for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                    try {
+                        JSONObject u = new JSONObject();
+                        u.put("uid", doc.getId());
+                        u.put("name", doc.getString("name") == null ? "LillyBD User" : doc.getString("name"));
+                        u.put("email", doc.getString("email") == null ? "" : doc.getString("email"));
+                        u.put("blocked", Boolean.TRUE.equals(doc.getBoolean("blocked")));
+                        users.put(u);
+                    } catch (Exception ignored) { }
+                }
+                sendAdminResult("{\"ok\":true,\"users\":" + users.toString() + "}");
+            });
+        }
+
+        @JavascriptInterface
+        public void setUserBlocked(String uid, boolean blocked) {
+            FirebaseUser me = auth.getCurrentUser();
+            if (me == null || !me.isEmailVerified() || me.getEmail() == null ||
+                !me.getEmail().equalsIgnoreCase("boteditz999@gmail.com") ||
+                uid == null || uid.trim().isEmpty() || uid.equals(me.getUid())) {
+                sendAdminResult("{\"ok\":false,\"message\":\"Admin access denied or invalid user.\"}");
+                return;
+            }
+            db.collection("users").document(uid).update("blocked", blocked)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) loadAdminUsers();
+                    else sendAdminResult("{\"ok\":false,\"message\":\"Could not update user status. Check Firestore rules.\"}");
+                });
+        }
+
+        private void sendAdminResult(String json) {
+            runOnUiThread(() -> {
+                if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeAdminUsers && window.onNativeAdminUsers(" + JSONObject.quote(json) + ");", null);
+            });
+        }
+
+        @JavascriptInterface
         public void startChat(String email) {
             FirebaseUser me = auth.getCurrentUser();
             String targetEmail = email == null ? "" : email.trim().toLowerCase();
