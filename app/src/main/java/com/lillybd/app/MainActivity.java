@@ -374,21 +374,6 @@ public class MainActivity extends Activity {
             }
         }
 
-        @Override
-        public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-            if (requestCode == 7201) {
-                boolean granted = false;
-                for (int result : grantResults) if (result == PackageManager.PERMISSION_GRANTED) granted = true;
-                if (granted) acquireAndSendLocation();
-                else {
-                    pendingLocationChatId = null;
-                    if (webView != null) webView.evaluateJavascript(
-                        "window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission denied.');", null);
-                }
-            }
-        }
-
         @JavascriptInterface
         public void sendMessage(String chatId, String text) {
             FirebaseUser me = auth.getCurrentUser();
@@ -589,6 +574,23 @@ public class MainActivity extends Activity {
         public void logout() {
             auth.signOut();
             sendResult(true, "Logged out", null);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 7201) {
+            boolean granted = false;
+            for (int result : grantResults) if (result == PackageManager.PERMISSION_GRANTED) granted = true;
+            if (granted) {
+                if (webView != null) webView.evaluateJavascript(
+                    "window.LillyNative && window.LillyNative.finishLocationRequest && window.LillyNative.finishLocationRequest();", null);
+            } else {
+                pendingLocationChatId = null;
+                if (webView != null) webView.evaluateJavascript(
+                    "window.onNativeLocationStatus && window.onNativeLocationStatus('Location permission denied.');", null);
+            }
         }
     }
 
