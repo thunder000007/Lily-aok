@@ -1,25 +1,36 @@
 # LillyBD
 
-LillyBD is a chat app project. Firebase setup and app integration are in progress.
+LillyBD is currently a **single-page HTML/CSS/JavaScript demo**, not a native Android/Flutter project. The main UI is `LillyBD_Rainbow_Login_Fixed.html`.
 
-## Planned Firebase services
+## Current implementation status
 
-- **Firebase Authentication** — email/password sign-in and account management.
-- **Cloud Firestore** — user profiles, friend requests, conversations, and real-time messages.
-- **Cloud Storage** — profile photos and chat media.
+- The UI includes home/feed, stories, profile, and chat screens.
+- Sign-up, login, posts, and chat data currently use browser `localStorage`.
+- The demo stores account passwords in browser storage. **Do not use real passwords or treat this as production authentication.**
+- Google sign-in is a placeholder; it is not connected to Firebase.
+- Firebase Hosting configuration targets project `lillybd-f499d`.
+- `google-services.json` is Android-specific and does not configure Firebase for this HTML web app.
+- No Firebase Web app configuration has been added, and Firebase Authentication/Firestore integration has not yet been completed.
 
-## Setup status
+## Planned Firebase integration
 
-- [x] GitHub repository connected.
-- [ ] Confirm the Firebase project ID and register the app.
-- [ ] Add the platform-specific Firebase configuration to the app.
-- [ ] Enable Email/Password Authentication.
-- [ ] Create Firestore database and deploy restrictive security rules.
-- [ ] Configure Storage and secure upload rules.
-- [ ] Integrate and test sign-in, friend requests, and real-time messaging.
+1. Register a Firebase **Web app** in project `lillybd-f499d` and obtain its web configuration.
+2. Enable Email/Password and Google providers in Firebase Authentication.
+3. Create the Cloud Firestore database.
+4. Replace localStorage-based authentication with Firebase Authentication.
+5. Move profiles, posts, stories, and conversations to Firestore, with real-time listeners where needed.
+6. Configure and test security rules against the final data model before deployment.
+7. Use Firebase Storage for profile photos and media instead of storing large data URLs in localStorage.
 
-> Never commit service-account private keys, passwords, or other secrets. Firebase client configuration is not a substitute for proper Security Rules.
+## Firebase project files
 
-## Current repository status
+- `.firebaserc` selects `lillybd-f499d` as the default CLI project.
+- `firebase.json` configures Hosting and references `firestore.rules` and `storage.rules`.
+- `FIREBASE_SETUP.md` documents the remaining Console setup.
+- Security rules are only a starting point; review and test them against the actual schema before deploying.
 
-The repository initially contained no application files. Choose or restore the intended app source before adding platform-specific Firebase configuration or code.
+## Important
+
+Do not commit Firebase service-account private keys, passwords, or other server secrets. Firebase client configuration is intended for client apps, but access must be protected with Authentication and correctly designed Security Rules.
+
+A successful Hosting deployment alone does **not** mean authentication, Firestore, or messaging is working.
