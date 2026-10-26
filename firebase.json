@@ -12,8 +12,12 @@
     ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/LillyBD_Rainbow_Login_Fixed.html"
+        "source": "/admin",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
       }
     ]
   },
