@@ -1,25 +1,23 @@
-# LillyBD
+# LilyBD
 
-LillyBD is a chat app project. Firebase setup and app integration are in progress.
+LilyBD is a social/chat app prototype. **It is not ready for public production release yet.**
 
-## Planned Firebase services
+## Current state
+- Existing UI: `LillyBD_Rainbow_Login_Fixed.html`
+- Current demo data: browser `localStorage` (per device only)
+- Real Firebase Authentication and cross-device real-time chat: not integrated yet
+- Firebase project target: `lillybd-f499d` (configured target only; service/deployment state must be verified)
+- Security-first release checklist: [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md)
+- Firebase setup and warnings: [FIREBASE_SETUP.md](FIREBASE_SETUP.md)
 
-- **Firebase Authentication** — email/password sign-in and account management.
-- **Cloud Firestore** — user profiles, friend requests, conversations, and real-time messages.
-- **Cloud Storage** — profile photos and chat media.
+## Security warning
+The prototype stores passwords in localStorage as plaintext. Do not publish it as a real social network, invite public users, or enter a reused/real password. The Firebase rules in this repository are not proof of a deployed or tested backend.
 
-## Setup status
+## Planned release
+1. Integrate Firebase Authentication and remove localStorage account/password handling.
+2. Migrate private chats and messages to Firestore with member-only Security Rules.
+3. Migrate profiles, posts, stories, and interactions to a secure shared backend.
+4. Test security rules with the Firebase Emulator Suite and two separate accounts.
+5. Deploy the website over HTTPS and create a signed Android APK/AAB after acceptance tests pass.
 
-- [x] GitHub repository connected.
-- [ ] Confirm the Firebase project ID and register the app.
-- [ ] Add the platform-specific Firebase configuration to the app.
-- [ ] Enable Email/Password Authentication.
-- [ ] Create Firestore database and deploy restrictive security rules.
-- [ ] Configure Storage and secure upload rules.
-- [ ] Integrate and test sign-in, friend requests, and real-time messaging.
-
-> Never commit service-account private keys, passwords, or other secrets. Firebase client configuration is not a substitute for proper Security Rules.
-
-## Current repository status
-
-The repository initially contained no application files. Choose or restore the intended app source before adding platform-specific Firebase configuration or code.
+Never commit service-account private keys, signing keys, passwords, or other secrets.
