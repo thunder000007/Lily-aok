@@ -50,8 +50,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         auth = FirebaseAuth.getInstance();
-        auth.addAuthStateListener(authStateListener);
         db = FirebaseFirestore.getInstance();
+        auth.addAuthStateListener(authStateListener);
         createNotificationChannel();
         requestNotificationPermission();
         webView = new WebView(this);
