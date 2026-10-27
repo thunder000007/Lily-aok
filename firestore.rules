@@ -136,7 +136,8 @@ service cloud.firestore {
         && (request.auth.uid == resource.data.followerId
           || request.auth.uid == resource.data.followingId);
       allow create: if activeUser()
-        && request.resource.data.followerId == request.auth.uid
+        && (request.resource.data.followerId == request.auth.uid
+          || request.resource.data.followingId == request.auth.uid)
         && request.resource.data.followingId is string
         && request.resource.data.followingId != request.auth.uid
         && request.resource.data.keys().hasOnly(['followerId', 'followingId', 'createdAt'])
