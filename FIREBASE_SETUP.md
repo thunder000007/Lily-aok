@@ -35,3 +35,21 @@ firebase deploy --only firestore:rules,storage
 ```
 
 Do not deploy Hosting as a production app yet. The HTML has not been integrated with Firebase Authentication/Firestore, and the app still relies on localStorage. No Firebase services have been enabled or deployed by this repository change.
+
+
+## Android push notifications for new messages
+
+The `message-notifications` branch adds Firebase Cloud Messaging (FCM) to the Android app and a Cloud Function that sends a push notification when a new Firestore message is created. The notification title uses the sender's profile name (or email as fallback), and the body previews the message. Android 13+ also asks the user for notification permission.
+
+Before notifications can work in production:
+
+1. Verify Firestore is initialized and its database location. The function trigger region in `functions/index.js` must match the Firestore database location; change `asia-south1` if the database is elsewhere.
+2. Ensure the Firebase project is on the Blaze plan if required by Cloud Functions deployment and that billing is configured.
+3. Install Node.js 20 and Firebase CLI on a trusted computer, sign in with an account that has access to `lillybd-f499d`, and run:
+   ```sh
+   firebase use lillybd-f499d
+   firebase deploy --only functions:notifyOnNewMessage,firestore:rules
+   ```
+4. Build and install the APK from the GitHub Actions artifact for the `message-notifications` branch. Sign in on both test phones, allow notifications, then send a test message with the recipient app in the background.
+
+The function source and Android code are committed, but source changes alone do not deploy a Cloud Function to Firebase. Do not treat push notifications as live until deployment succeeds and a background-message test passes. Keep service-account private keys out of GitHub.
