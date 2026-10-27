@@ -30,6 +30,15 @@ service cloud.firestore {
       allow delete: if signedIn() && request.auth.uid == userId;
     }
 
+    // Public-facing profile fields only; never expose private user documents.
+    match /publicProfiles/{userId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'photoURL', 'updatedAt'])
+        && request.resource.data.uid == userId;
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
     match /posts/{postId} {
       allow read: if activeUser() || isAdmin();
       allow create: if activeUser()
