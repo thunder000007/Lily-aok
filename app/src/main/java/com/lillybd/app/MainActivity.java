@@ -1,6 +1,9 @@
 package com.lillybd.app;
 
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -17,6 +20,7 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.StorageReference;
@@ -34,8 +38,9 @@ public class MainActivity extends Activity {
     private final FirebaseAuth.AuthStateListener authStateListener = firebaseAuth -> {
         authStateInitialized = true;
         FirebaseUser signedInUser = firebaseAuth.getCurrentUser();
-        if (webPageReady && signedInUser != null) {
-            sendResult(true, "Session restored", signedInUser);
+        if (signedInUser != null) {
+            registerForPushNotifications(signedInUser);
+            if (webPageReady) sendResult(true, "Session restored", signedInUser);
         }
     };
     private String pendingLocationChatId = null;
@@ -44,6 +49,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        createNotificationChannel();
+        requestNotificationPermissionIfNeeded();
         auth = FirebaseAuth.getInstance();
         auth.addAuthStateListener(authStateListener);
         db = FirebaseFirestore.getInstance();
@@ -75,6 +82,37 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient());
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                "lillybd_messages", "LillyBD Messages", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("Notifications for new LillyBD messages");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7202);
+        }
+    }
+
+    private void registerForPushNotifications(FirebaseUser user) {
+        FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
+            if (token != null && !token.isEmpty() && auth != null && auth.getCurrentUser() != null &&
+                auth.getCurrentUser().getUid().equals(user.getUid())) {
+                db.collection("users").document(user.getUid()).update("fcmTokens", FieldValue.arrayUnion(token))
+                    .addOnFailureListener(error -> {
+                        Map<String,Object> tokenData = new HashMap<>();
+                        tokenData.put("fcmTokens", java.util.Collections.singletonList(token));
+                        db.collection("users").document(user.getUid()).set(tokenData,
+                            com.google.firebase.firestore.SetOptions.merge());
+                    });
+            }
+        });
     }
 
     private void sendResult(boolean ok, String message, FirebaseUser user) {
