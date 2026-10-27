@@ -2,6 +2,8 @@ name: Android debug APK
 on:
   push:
     branches: [message-notifications]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
