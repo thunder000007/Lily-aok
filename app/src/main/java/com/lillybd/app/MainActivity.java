@@ -544,7 +544,7 @@ public class MainActivity extends Activity {
                 sendProfilePhotoResult(false, "Photo is empty or too large. Choose a smaller image.", null);
                 return;
             }
-            String path = "users/" + user.getUid() + "/profile_" + UUID.randomUUID() + ".jpg";
+            String path = "users/" + user.getUid() + "/profile/profile_" + UUID.randomUUID() + ".jpg";
             uploadImage(path, dataUrl, (url, error) -> {
                 if (error != null || url == null) {
                     sendProfilePhotoResult(false, "Photo upload failed: " + (error == null ? "unknown error" : error), null);
