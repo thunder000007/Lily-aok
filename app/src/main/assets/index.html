@@ -47,6 +47,8 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
         <div class="row between" style="margin-top:12px"><span class="small">✧ Share a moment with LillyBD</span><button class="btn ghost smallbtn" onclick="go('post')">Post now</button></div>
       </div>
       <div class="card"><div class="row between"><div><div class="section-title" style="margin:0 0 5px">Community</div><strong>Discover people</strong></div><span class="small">Follow accounts</span></div><div id="peopleList" style="margin-top:12px"></div></div>
+
+      <div class="card"><div class="row between"><div><div class="section-title" style="margin:0 0 5px">Connections</div><strong>Follow Requests</strong></div><button class="btn ghost smallbtn" onclick="refreshFollowRequests()">Refresh</button></div><div id="followRequestsList" style="margin-top:12px"><div class="small">Loading requests…</div></div></div>
       <div id="feed"></div>
     </section>
     <section class="page" id="postPage">
@@ -115,6 +117,27 @@ function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block'
 function user(){return state.users.find(u=>u.id===currentUser)}
 function avatarHTML(u,size=''){return u&&u.photo?`<img src="${u.photo}" alt="">`:esc((u&&u.name||'L').trim().charAt(0).toUpperCase())}
 function renderAvatar(el,u){el.innerHTML=avatarHTML(u)}
+
+window.onNativeFollowRequests = raw => {
+  try { const d=typeof raw==='string'?JSON.parse(raw):raw; state.incomingRequests=d.incoming||[]; state.outgoingRequests=d.outgoing||[]; state.connections=d.connections||[]; renderPeople(); renderFollowRequests(); renderProfile(); }
+  catch(e) { toast('Could not load follow requests'); }
+};
+window.onNativeFollowAction = raw => {
+  let r; try { r=typeof raw==='string'?JSON.parse(raw):raw; } catch(e) { toast('Follow request response error'); return; }
+  toast(r.message || (r.ok?'Updated':'Request failed')); if(r.ok) refreshFollowRequests();
+};
+function refreshFollowRequests(){if(window.LillyNative&&window.LillyNative.loadFollowRequests)window.LillyNative.loadFollowRequests();}
+function respondFollow(id,accept){if(window.LillyNative&&window.LillyNative.respondToFollowRequest)window.LillyNative.respondToFollowRequest(id,accept);else toast('Update the LillyBD app to use follow requests.');}
+function requestFollow(id){if(window.LillyNative&&window.LillyNative.sendFollowRequest)window.LillyNative.sendFollowRequest(id);else toast('Update the LillyBD app to use follow requests.');}
+function renderFollowRequests(){
+ const incoming=state.incomingRequests||[], outgoing=state.outgoingRequests||[];
+ const nameFor=id=>(state.users.find(x=>x.id===id)||{}).name||('User '+String(id).slice(0,7)), parts=[];
+ if(incoming.length){parts.push('<div class="small" style="margin-bottom:8px">Received</div>');incoming.forEach(r=>{parts.push('<div class="row between" style="padding:9px 0;border-bottom:1px solid var(--line)"><div style="min-width:0"><strong>'+esc(nameFor(r.fromUid))+'</strong><div class="small">Wants to connect with you</div></div><div class="row"><button class="btn smallbtn" onclick="respondFollow(\''+esc(r.id)+'\',true)">Accept</button><button class="btn ghost smallbtn" onclick="respondFollow(\''+esc(r.id)+'\',false)">Decline</button></div></div>')})}
+ if(outgoing.length){parts.push('<div class="small" style="margin:12px 0 6px">Sent · waiting</div>');outgoing.forEach(r=>parts.push('<div class="row between" style="padding:7px 0"><strong>'+esc(nameFor(r.toUid))+'</strong><span class="small">Pending…</span></div>'))}
+ if(!parts.length)parts.push('<div class="small">No pending requests.</div>');
+ $('followRequestsList').innerHTML=parts.join('');
+}
+
 window.onNativePublicProfiles=raw=>{
   try {
     const profiles=typeof raw==='string'?JSON.parse(raw):raw;
@@ -176,7 +199,7 @@ window.onNativeAdminUsers=raw=>{
 };
 function toggleBlocked(uid,blocked){if(!window.LillyNative)return;window.LillyNative.setUserBlocked(uid,blocked)}
 $('refreshAdminUsers').onclick=()=>{if(window.LillyNative)window.LillyNative.loadAdminUsers()};
-function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats();window.LillyNative.loadStories()}}
+function enterApp(){$('authView').classList.add('hidden');$('mainView').classList.remove('hidden');$('bottomNav').classList.remove('hidden');go('home');renderAll();if(window.LillyNative){window.LillyNative.loadPosts();window.LillyNative.loadChats();window.LillyNative.loadStories();window.LillyNative.loadFollowRequests()}}
 function logout(){if(window.LillyNative){window.LillyNative.logout();return}currentUser=null;activeChat=null;$('mainView').classList.add('hidden');$('bottomNav').classList.add('hidden');$('authView').classList.remove('hidden');$('authForm').reset();setAuth('login')}
 function go(page){if(!currentUser)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(page+'Page').classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='home'){renderFeed();renderPeople()}if(page==='message')renderChats();if(page==='profile')renderProfile();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>go(b.dataset.page));
@@ -214,8 +237,7 @@ function postHTML(p){let u=state.users.find(x=>x.id===p.userId)||{name:'LillyBD'
 function renderFeed(){$('feed').innerHTML=state.posts.length?state.posts.map(postHTML).join(''):'<div class="card empty">✧<h3>It is quiet here</h3><p>Be the first to share a moment on LillyBD.</p><button class="btn" onclick="go(\'post\')">Create your first post</button></div>';renderStories()}
 function renderProfile(){const u=user();u.following=u.following||[];u.social=u.social||{};renderAvatar($('profileAvatar'),u);renderAvatar($('quickAvatar'),u);$('profileName').textContent=u.name;$('profileEmail').textContent=u.email;$('profileBio').textContent=u.bio||'Welcome to my LillyBD profile ✦';$('statPosts').textContent=state.posts.filter(p=>p.userId===currentUser).length;$('statStories').textContent=state.stories.filter(s=>s.userId===currentUser&&Date.now()-s.created<86400000).length;$('statFollowers').textContent=state.users.filter(x=>(x.following||[]).includes(currentUser)).length;$('statFollowing').textContent=u.following.length;const labels={instagram:'Instagram',facebook:'Facebook',tiktok:'TikTok',youtube:'YouTube',other:'Social link'};$('profileSocials').innerHTML=Object.entries(u.social).filter(([k,v])=>v&&/^https?:\/\//i.test(v)).map(([k,v])=>`<a class="filelabel" style="text-decoration:none" href="${esc(v)}" target="_blank" rel="noopener noreferrer">↗ ${labels[k]||'Social link'}</a>`).join('');const mine=state.posts.filter(p=>p.userId===currentUser);$('myPosts').innerHTML=mine.length?mine.map(postHTML).join(''):'<div class="card empty">Your posts will appear here.</div>';renderPeople()}
 function renderAll(){renderFeed();renderProfile();renderChats()}
-function renderPeople(){const others=state.users.filter(x=>x.id!==currentUser);$('peopleList').innerHTML=others.length?others.map(x=>{const following=(user().following||[]).includes(x.id);return `<div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row" style="min-width:0"><div class="avatar">${avatarHTML(x)}</div><div style="min-width:0"><strong>${esc(x.name)}</strong><div class="small">${state.users.filter(y=>(y.following||[]).includes(x.id)).length} followers</div></div></div><button class="btn ${following?'ghost':''} smallbtn" onclick="toggleFollow('${x.id}')">${following?'Following ✓':'＋ Follow'}</button></div>`}).join(''):'<div class="small" style="padding:12px 0">No other accounts yet. Log out and create another account on this device to try following.</div>'}
-function toggleFollow(id){if(id===currentUser)return;const u=user();u.following=u.following||[];if(u.following.includes(id)){u.following=u.following.filter(x=>x!==id);toast('Unfollowed account')}else{u.following.push(id);toast('Following ✦')}save();renderAll()}
+function renderPeople(){const others=state.users.filter(x=>x.id!==currentUser),incoming=state.incomingRequests||[],outgoing=state.outgoingRequests||[],connections=state.connections||[];$('peopleList').innerHTML=others.length?others.map(x=>{const connected=connections.some(c=>c.followingId===x.id),pending=outgoing.some(r=>r.toUid===x.id),requestedMe=incoming.some(r=>r.fromUid===x.id);let action=connected?'<span class="small">Connected ✓</span>':requestedMe?'<span class="small">Sent you a request</span>':pending?'<button class="btn ghost smallbtn" disabled>Pending…</button>':'<button class="btn smallbtn" onclick="requestFollow(\''+esc(x.id)+'\')">＋ Follow</button>';return '<div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row" style="min-width:0"><div class="avatar">'+avatarHTML(x)+'</div><div style="min-width:0"><strong>'+esc(x.name)+'</strong><div class="small">'+(connected?'Connected ✓':pending?'Request pending':requestedMe?'Sent you a request':'LillyBD member')+'</div></div></div>'+action+'</div>'}).join(''):'<div class="small" style="padding:12px 0">No other accounts yet.</div>';renderFollowRequests()}
 function likePost(id){const p=state.posts.find(p=>p.id===id);if(!p)return;p.likes=p.likes||[];const liked=p.likes.includes(currentUser);if(window.LillyNative){window.LillyNative.togglePostLike(id,liked);return}p.likes=liked?p.likes.filter(x=>x!==currentUser):[...p.likes,currentUser];save();renderFeed();renderProfile()}
 function commentPost(id){const text=prompt('Write a comment');if(!text||!text.trim())return;const p=state.posts.find(p=>p.id===id);p.comments.push({name:user().name,text:text.trim()});save();renderFeed();renderProfile()}
 function sharePost(id){const p=state.posts.find(p=>p.id===id);if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText((p.text||'LillyBD post')+' — LillyBD').then(()=>toast('Post text copied')).catch(()=>toast('Nice post ✦'));else toast('Nice post ✦')}
