@@ -103,11 +103,6 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     fileChooserCallback = null;
                     filePathCallback.onReceiveValue(null);
-                    runOnUiThread(() -> {
-                        if (webView != null) webView.evaluateJavascript(
-                            "window.onNativeProfilePhotoResult && window.onNativeProfilePhotoResult(" +
-                            JSONObject.quote("{\\"ok\\":false,\\"message\\":\\"No photo picker app available\\"}") + ");", null);
-                    });
                     return false;
                 }
             }
