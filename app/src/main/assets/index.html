@@ -115,6 +115,18 @@ function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block'
 function user(){return state.users.find(u=>u.id===currentUser)}
 function avatarHTML(u,size=''){return u&&u.photo?`<img src="${u.photo}" alt="">`:esc((u&&u.name||'L').trim().charAt(0).toUpperCase())}
 function renderAvatar(el,u){el.innerHTML=avatarHTML(u)}
+window.onNativePublicProfiles=raw=>{
+  try {
+    const profiles=typeof raw==='string'?JSON.parse(raw):raw;
+    if(!Array.isArray(profiles))return;
+    profiles.forEach(p=>{
+      let u=state.users.find(x=>x.id===p.uid);
+      if(!u){u={id:p.uid,name:p.name||'LillyBD User',email:'',bio:'',photo:p.photoURL||'',following:[],social:{}};state.users.push(u)}
+      else {u.name=p.name||u.name;u.photo=p.photoURL||u.photo||''}
+    });
+    save();renderAll();
+  } catch(e) {}
+};
 function setAuth(mode){authMode=mode;$('authTitle').textContent=mode==='signup'?'Welcome to LillyBD':'Welcome back';$('authSub').textContent=mode==='signup'?'Create an account and share your moments.':'Log in to your LillyBD account.';$('authName').classList.toggle('hidden',mode==='login');$('authName').required=mode==='signup';$('authSubmit').textContent=mode==='signup'?'Create account':'Log in';$('switchText').textContent=mode==='signup'?'Already have an account?':"Don't have an account?";$('switchAuth').textContent=mode==='signup'?'Log in':'Sign up'}
 $('switchAuth').onclick=()=>setAuth(authMode==='signup'?'login':'signup');
 window.onNativeAuthResult = raw => {
@@ -138,6 +150,7 @@ window.onNativeAuthResult = raw => {
   else { local.name=u.name||local.name; local.email=u.email; local.photo=u.photoURL||local.photo||''; }
   delete local.password;
   currentUser=u.uid; save(); enterApp();
+  if(window.LillyNative&&window.LillyNative.loadPublicProfiles) window.LillyNative.loadPublicProfiles();
   const isAdmin=String(u.email||'').toLowerCase()===ADMIN_EMAIL && u.emailVerified===true;
   $('adminPanel').classList.toggle('hidden',!isAdmin);
   if(isAdmin && window.LillyNative) window.LillyNative.loadAdminUsers();
