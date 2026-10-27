@@ -1,0 +1,24 @@
+name: Deploy LillyBD Firestore Rules
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/follow-requests]
+    paths:
+      - "firestore.rules"
+      - ".github/workflows/deploy-firestore-rules.yml"
+permissions:
+  contents: read
+jobs:
+  deploy-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LILLYBD_F499D }}
+      - run: npm install -g firebase-tools
+      - name: Deploy Firestore rules to LillyBD
+        run: firebase deploy --only firestore:rules --project lillybd-f499d --non-interactive
