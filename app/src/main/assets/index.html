@@ -50,16 +50,20 @@ h1,h2,h3,p{margin-top:0}h2{font-size:22px;margin-bottom:8px}p{color:var(--muted)
       <div id="feed"></div>
     </section>
     <section class="page" id="postPage">
-      <h2>Create something ✦</h2><p>Share a post or add a story for the next 24 hours.</p>
-      <div class="card"><div class="section-title">New post</div>
-        <textarea class="field" id="postText" placeholder="Write something worth sharing..."></textarea>
-        <label class="filelabel">▧ Add photo <input id="postPhoto" type="file" accept="image/*" class="hidden"></label><span class="small" id="postFileName" style="margin-left:8px"></span>
-        <div style="margin-top:14px"><button class="btn full" id="publishPost">Publish post</button></div>
+      <div class="card" style="text-align:center;padding:38px 20px;margin-top:24px">
+        <div style="font-size:42px;margin-bottom:14px">✦</div>
+        <h2>Coming Soon</h2>
+        <p>Post and Story features are coming soon to LillyBD.</p>
       </div>
-      <div class="card"><div class="section-title">New story · disappears after 24 hours</div>
-        <p class="small">Add a photo or a short thought.</p><input class="field" id="storyText" placeholder="A little moment...">
-        <label class="filelabel">▧ Story photo <input id="storyPhoto" type="file" accept="image/*" class="hidden"></label><span class="small" id="storyFileName" style="margin-left:8px"></span>
-        <div style="margin-top:14px"><button class="btn full" id="publishStory">Add to story</button></div>
+      <div class="hidden" aria-hidden="true">
+        <textarea class="field" id="postText"></textarea>
+        <input id="postPhoto" type="file" accept="image/*">
+        <span id="postFileName"></span>
+        <button id="publishPost" type="button">Publish post</button>
+        <input class="field" id="storyText">
+        <input id="storyPhoto" type="file" accept="image/*">
+        <span id="storyFileName"></span>
+        <button id="publishStory" type="button">Add to story</button>
       </div>
     </section>
     <section class="page" id="messagePage">
