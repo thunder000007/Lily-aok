@@ -533,6 +533,62 @@ public class MainActivity extends Activity {
                 });
         }
 
+        @JavascriptInterface
+        public void updateProfilePhoto(String dataUrl) {
+            FirebaseUser user = auth == null ? null : auth.getCurrentUser();
+            if (user == null) {
+                sendProfilePhotoResult(false, "Sign in before changing your profile photo", null);
+                return;
+            }
+            if (dataUrl == null || dataUrl.isEmpty() || dataUrl.length() > 12 * 1024 * 1024) {
+                sendProfilePhotoResult(false, "Photo is empty or too large. Choose a smaller image.", null);
+                return;
+            }
+            String path = "users/" + user.getUid() + "/profile_" + UUID.randomUUID() + ".jpg";
+            uploadImage(path, dataUrl, (url, error) -> {
+                if (error != null || url == null) {
+                    sendProfilePhotoResult(false, "Photo upload failed: " + (error == null ? "unknown error" : error), null);
+                    return;
+                }
+                com.google.firebase.auth.UserProfileChangeRequest request =
+                    new com.google.firebase.auth.UserProfileChangeRequest.Builder().setPhotoUri(android.net.Uri.parse(url)).build();
+                user.updateProfile(request).addOnCompleteListener(profileTask -> {
+                    if (!profileTask.isSuccessful()) {
+                        sendProfilePhotoResult(false, profileTask.getException() == null ?
+                            "Could not update account photo" : profileTask.getException().getLocalizedMessage(), null);
+                        return;
+                    }
+                    Map<String, Object> profile = new HashMap<>();
+                    profile.put("uid", user.getUid());
+                    profile.put("email", user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase());
+                    profile.put("name", user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName());
+                    profile.put("photoURL", url);
+                    profile.put("updatedAt", FieldValue.serverTimestamp());
+                    db.collection("users").document(user.getUid()).set(profile,
+                        com.google.firebase.firestore.SetOptions.merge()).addOnCompleteListener(saveTask -> {
+                            if (saveTask.isSuccessful()) sendProfilePhotoResult(true, "Profile photo saved", url);
+                            else sendProfilePhotoResult(false, "Photo uploaded but profile save failed: " +
+                                (saveTask.getException() == null ? "unknown error" : saveTask.getException().getLocalizedMessage()), null);
+                        });
+                });
+            });
+        }
+
+        private void sendProfilePhotoResult(boolean ok, String message, String photoURL) {
+            try {
+                JSONObject result = new JSONObject();
+                result.put("ok", ok);
+                result.put("message", message == null ? "" : message);
+                result.put("photoURL", photoURL == null ? "" : photoURL);
+                String json = result.toString();
+                runOnUiThread(() -> {
+                    if (webView != null) webView.evaluateJavascript(
+                        "window.onNativeProfilePhotoResult && window.onNativeProfilePhotoResult(" +
+                        JSONObject.quote(json) + ");", null);
+                });
+            } catch (Exception ignored) { }
+        }
+
         private void uploadImage(String path, String dataUrl, UploadCallback callback) {
             try {
                 int comma = dataUrl.indexOf(',');
