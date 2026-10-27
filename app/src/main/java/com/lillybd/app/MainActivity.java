@@ -280,6 +280,98 @@ public class MainActivity extends Activity {
             });
         }
 
+
+        @JavascriptInterface
+        public void loadFollowRequests() {
+            FirebaseUser me = auth == null ? null : auth.getCurrentUser();
+            if (me == null) return;
+            final org.json.JSONArray incoming = new org.json.JSONArray();
+            final org.json.JSONArray outgoing = new org.json.JSONArray();
+            final org.json.JSONArray connections = new org.json.JSONArray();
+            final int[] done = {0};
+            Runnable finish = () -> {
+                if (++done[0] != 3) return;
+                try {
+                    JSONObject result = new JSONObject();
+                    result.put("incoming", incoming); result.put("outgoing", outgoing); result.put("connections", connections);
+                    String payload = result.toString();
+                    runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript("window.onNativeFollowRequests && window.onNativeFollowRequests(" + JSONObject.quote(payload) + ");", null); });
+                } catch (Exception ignored) { }
+            };
+            db.collection("followRequests").whereEqualTo("toUid", me.getUid()).whereEqualTo("status", "pending").get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult()!=null) for (com.google.firebase.firestore.DocumentSnapshot d:task.getResult().getDocuments()) try { JSONObject o=new JSONObject(); o.put("id",d.getId()); o.put("fromUid",d.getString("fromUid")); o.put("toUid",d.getString("toUid")); o.put("status",d.getString("status")); incoming.put(o); } catch(Exception ignored){}
+                finish.run();
+            });
+            db.collection("followRequests").whereEqualTo("fromUid", me.getUid()).whereEqualTo("status", "pending").get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult()!=null) for (com.google.firebase.firestore.DocumentSnapshot d:task.getResult().getDocuments()) try { JSONObject o=new JSONObject(); o.put("id",d.getId()); o.put("fromUid",d.getString("fromUid")); o.put("toUid",d.getString("toUid")); o.put("status",d.getString("status")); outgoing.put(o); } catch(Exception ignored){}
+                finish.run();
+            });
+            db.collection("follows").whereEqualTo("followerId", me.getUid()).get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult()!=null) for (com.google.firebase.firestore.DocumentSnapshot d:task.getResult().getDocuments()) try { JSONObject o=new JSONObject(); o.put("id",d.getId()); o.put("followerId",d.getString("followerId")); o.put("followingId",d.getString("followingId")); connections.put(o); } catch(Exception ignored){}
+                finish.run();
+            });
+        }
+
+        @JavascriptInterface
+        public void sendFollowRequest(String targetUid) {
+            FirebaseUser me = auth == null ? null : auth.getCurrentUser();
+            if (me == null) { sendFollowAction(false, "Please log in first."); return; }
+            if (targetUid == null || targetUid.trim().isEmpty() || targetUid.equals(me.getUid())) { sendFollowAction(false, "Choose another user."); return; }
+            String requestId = me.getUid() + "_" + targetUid;
+            db.collection("followRequests").document(requestId).get().addOnCompleteListener(existing -> {
+                if (!existing.isSuccessful()) { sendFollowAction(false, "Could not check existing request."); return; }
+                if (existing.getResult()!=null && existing.getResult().exists()) {
+                    String status=existing.getResult().getString("status");
+                    sendFollowAction(false, "pending".equals(status)?"Request already sent.":"accepted".equals(status)?"You are already connected.":"This request was previously declined.");
+                    return;
+                }
+                db.collection("followRequests").document(targetUid + "_" + me.getUid()).get().addOnCompleteListener(reverse -> {
+                    if (!reverse.isSuccessful()) { sendFollowAction(false, "Could not check incoming requests."); return; }
+                    if (reverse.getResult()!=null && "pending".equals(reverse.getResult().getString("status"))) { sendFollowAction(false, "This user already sent you a request. Accept it in Follow Requests."); return; }
+                    java.util.Map<String,Object> data=new java.util.HashMap<>();
+                    data.put("fromUid",me.getUid()); data.put("toUid",targetUid); data.put("status","pending");
+                    data.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp()); data.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    db.collection("followRequests").document(requestId).set(data).addOnCompleteListener(saved -> {
+                        if (saved.isSuccessful()) sendFollowAction(true,"Follow request sent."); else sendFollowAction(false,"Request failed. Publish the updated Firestore rules and try again.");
+                    });
+                });
+            });
+        }
+
+        @JavascriptInterface
+        public void respondToFollowRequest(String requestId, boolean accept) {
+            FirebaseUser me = auth == null ? null : auth.getCurrentUser();
+            if (me == null || requestId == null || requestId.trim().isEmpty()) { sendFollowAction(false,"Please log in first."); return; }
+            com.google.firebase.firestore.DocumentReference requestRef=db.collection("followRequests").document(requestId);
+            db.runTransaction(transaction -> {
+                com.google.firebase.firestore.DocumentSnapshot snap=transaction.get(requestRef);
+                if (!snap.exists()) throw new com.google.firebase.firestore.FirebaseFirestoreException("Request not found.", com.google.firebase.firestore.FirebaseFirestoreException.Code.NOT_FOUND);
+                String toUid=snap.getString("toUid"), fromUid=snap.getString("fromUid"), status=snap.getString("status");
+                if (!me.getUid().equals(toUid)) throw new com.google.firebase.firestore.FirebaseFirestoreException("Only the recipient can respond.", com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED);
+                if (!"pending".equals(status)) throw new com.google.firebase.firestore.FirebaseFirestoreException("This request was already handled.", com.google.firebase.firestore.FirebaseFirestoreException.Code.ABORTED);
+                transaction.update(requestRef,"status",accept?"accepted":"rejected");
+                transaction.update(requestRef,"updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                if (accept) {
+                    java.util.Map<String,Object> a=new java.util.HashMap<>(); a.put("followerId",fromUid); a.put("followingId",toUid); a.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    java.util.Map<String,Object> b=new java.util.HashMap<>(); b.put("followerId",toUid); b.put("followingId",fromUid); b.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    transaction.set(db.collection("follows").document(fromUid+"_"+toUid),a);
+                    transaction.set(db.collection("follows").document(toUid+"_"+fromUid),b);
+                }
+                return null;
+            }).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) sendFollowAction(true, accept?"Request accepted. You are now connected.":"Request declined.");
+                else sendFollowAction(false, task.getException()==null?"Could not update request.":task.getException().getLocalizedMessage());
+            });
+        }
+
+        private void sendFollowAction(boolean ok, String message) {
+            try {
+                JSONObject payload=new JSONObject(); payload.put("ok",ok); payload.put("message",message==null?"":message);
+                String json=payload.toString();
+                runOnUiThread(() -> { if (webView != null) webView.evaluateJavascript("window.onNativeFollowAction && window.onNativeFollowAction(" + JSONObject.quote(json) + ");", null); });
+            } catch (Exception ignored) { }
+        }
+
         @JavascriptInterface
         public void loadAdminUsers() {
             FirebaseUser me = auth.getCurrentUser();
