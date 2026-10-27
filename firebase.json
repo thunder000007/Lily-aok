@@ -8,7 +8,8 @@
       "storage.rules",
       "FIREBASE_SETUP.md",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "functions/**"
     ],
     "rewrites": [
       {
