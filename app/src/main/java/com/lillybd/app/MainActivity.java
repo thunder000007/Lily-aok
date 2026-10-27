@@ -544,33 +544,40 @@ public class MainActivity extends Activity {
                 sendProfilePhotoResult(false, "Photo is empty or too large. Choose a smaller image.", null);
                 return;
             }
-            String path = "users/" + user.getUid() + "/profile/profile_" + UUID.randomUUID() + ".jpg";
+
+            final String uid = user.getUid();
+            final String path = "users/" + uid + "/profile/profile_" + UUID.randomUUID() + ".jpg";
             uploadImage(path, dataUrl, (url, error) -> {
                 if (error != null || url == null) {
-                    sendProfilePhotoResult(false, "Photo upload failed: " + (error == null ? "unknown error" : error), null);
+                    sendProfilePhotoResult(false, "Photo upload failed: " +
+                        (error == null ? "unknown error" : error), null);
                     return;
                 }
-                com.google.firebase.auth.UserProfileChangeRequest request =
-                    new com.google.firebase.auth.UserProfileChangeRequest.Builder().setPhotoUri(android.net.Uri.parse(url)).build();
-                user.updateProfile(request).addOnCompleteListener(profileTask -> {
-                    if (!profileTask.isSuccessful()) {
-                        sendProfilePhotoResult(false, profileTask.getException() == null ?
-                            "Could not update account photo" : profileTask.getException().getLocalizedMessage(), null);
-                        return;
-                    }
-                    Map<String, Object> profile = new HashMap<>();
-                    profile.put("uid", user.getUid());
-                    profile.put("email", user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase());
-                    profile.put("name", user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName());
-                    profile.put("photoURL", url);
-                    profile.put("updatedAt", FieldValue.serverTimestamp());
-                    db.collection("users").document(user.getUid()).set(profile,
-                        com.google.firebase.firestore.SetOptions.merge()).addOnCompleteListener(saveTask -> {
-                            if (saveTask.isSuccessful()) sendProfilePhotoResult(true, "Profile photo saved", url);
-                            else sendProfilePhotoResult(false, "Photo uploaded but profile save failed: " +
-                                (saveTask.getException() == null ? "unknown error" : saveTask.getException().getLocalizedMessage()), null);
-                        });
-                });
+
+                // Save the durable profile URL first. The app should not report failure
+                // merely because Firebase Auth's optional photoURL update fails.
+                Map<String, Object> profile = new HashMap<>();
+                profile.put("uid", uid);
+                profile.put("email", user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase());
+                profile.put("name", user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName());
+                profile.put("photoURL", url);
+                profile.put("updatedAt", FieldValue.serverTimestamp());
+
+                db.collection("users").document(uid).set(profile,
+                    com.google.firebase.firestore.SetOptions.merge()).addOnCompleteListener(saveTask -> {
+                        if (!saveTask.isSuccessful()) {
+                            sendProfilePhotoResult(false, "Photo uploaded, but profile save failed: " +
+                                (saveTask.getException() == null ? "unknown error" :
+                                    saveTask.getException().getLocalizedMessage()), null);
+                            return;
+                        }
+
+                        com.google.firebase.auth.UserProfileChangeRequest request =
+                            new com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                                .setPhotoUri(android.net.Uri.parse(url)).build();
+                        user.updateProfile(request).addOnCompleteListener(profileTask ->
+                            sendProfilePhotoResult(true, "Profile photo saved", url));
+                    });
             });
         }
 
