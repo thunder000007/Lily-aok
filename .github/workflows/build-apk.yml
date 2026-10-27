@@ -3,7 +3,7 @@ name: Build LillyBD APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, firebase-integration, lillybd-admin-chat-location]
+    branches: [main, firebase-integration, lillybd-admin-chat-location, feature/follow-requests]
 
 permissions:
   contents: read
