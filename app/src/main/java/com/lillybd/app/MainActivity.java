@@ -163,6 +163,14 @@ public class MainActivity extends Activity {
         profile.put("updatedAt", FieldValue.serverTimestamp());
         db.collection("users").document(user.getUid()).set(profile,
             com.google.firebase.firestore.SetOptions.merge());
+        Map<String, Object> publicProfile = new HashMap<>();
+        publicProfile.put("uid", user.getUid());
+        publicProfile.put("name", (name != null && !name.trim().isEmpty()) ? name.trim() :
+            (user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName()));
+        publicProfile.put("photoURL", user.getPhotoUrl() == null ? "" : user.getPhotoUrl().toString());
+        publicProfile.put("updatedAt", FieldValue.serverTimestamp());
+        db.collection("publicProfiles").document(user.getUid()).set(publicProfile,
+            com.google.firebase.firestore.SetOptions.merge());
     }
 
     private interface UploadCallback { void complete(String url, String error); }
@@ -217,6 +225,32 @@ public class MainActivity extends Activity {
                     } else sendResult(false, task.getException() == null ?
                         "Login failed" : task.getException().getLocalizedMessage(), null);
                 });
+        }
+
+        @JavascriptInterface
+        public void loadPublicProfiles() {
+            FirebaseUser me = auth == null ? null : auth.getCurrentUser();
+            if (me == null) return;
+            db.collection("publicProfiles").limit(200).get().addOnCompleteListener(task -> {
+                org.json.JSONArray profiles = new org.json.JSONArray();
+                if (task.isSuccessful() && task.getResult() != null) {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        try {
+                            JSONObject p = new JSONObject();
+                            p.put("uid", doc.getId());
+                            p.put("name", doc.getString("name") == null ? "LillyBD User" : doc.getString("name"));
+                            p.put("photoURL", doc.getString("photoURL") == null ? "" : doc.getString("photoURL"));
+                            profiles.put(p);
+                        } catch (Exception ignored) { }
+                    }
+                }
+                String json = profiles.toString();
+                runOnUiThread(() -> {
+                    if (webView != null) webView.evaluateJavascript(
+                        "window.onNativePublicProfiles && window.onNativePublicProfiles(" +
+                        JSONObject.quote(json) + ");", null);
+                });
+            });
         }
 
         @JavascriptInterface
@@ -572,11 +606,23 @@ public class MainActivity extends Activity {
                             return;
                         }
 
-                        com.google.firebase.auth.UserProfileChangeRequest request =
-                            new com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                                .setPhotoUri(android.net.Uri.parse(url)).build();
-                        user.updateProfile(request).addOnCompleteListener(profileTask ->
-                            sendProfilePhotoResult(true, "Profile photo saved", url));
+                        Map<String, Object> publicProfile = new HashMap<>();
+                        publicProfile.put("uid", uid);
+                        publicProfile.put("name", user.getDisplayName() == null ? "LillyBD User" : user.getDisplayName());
+                        publicProfile.put("photoURL", url);
+                        publicProfile.put("updatedAt", FieldValue.serverTimestamp());
+                        db.collection("publicProfiles").document(uid).set(publicProfile,
+                            com.google.firebase.firestore.SetOptions.merge()).addOnCompleteListener(publicTask -> {
+                                if (!publicTask.isSuccessful()) {
+                                    sendProfilePhotoResult(false, "Photo saved, but sharing with other users failed. Publish Firestore rules.", null);
+                                    return;
+                                }
+                                com.google.firebase.auth.UserProfileChangeRequest request =
+                                    new com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                                        .setPhotoUri(android.net.Uri.parse(url)).build();
+                                user.updateProfile(request).addOnCompleteListener(profileTask ->
+                                    sendProfilePhotoResult(true, "Profile photo saved and shared", url));
+                            });
                     });
             });
         }
