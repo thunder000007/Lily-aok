@@ -6,6 +6,8 @@ import android.app.NotificationManager;
 import android.os.Build;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.Uri;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -14,6 +16,7 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -31,6 +34,8 @@ import java.util.UUID;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private ValueCallback<Uri[]> fileChooserCallback;
+    private static final int FILE_CHOOSER_REQUEST_CODE = 7301;
     private FirebaseAuth auth;
     private FirebaseFirestore db;
     private boolean webPageReady = false;
@@ -79,7 +84,34 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
+                    FileChooserParams fileChooserParams) {
+                if (fileChooserCallback != null) {
+                    fileChooserCallback.onReceiveValue(null);
+                    fileChooserCallback = null;
+                }
+                fileChooserCallback = filePathCallback;
+                Intent intent;
+                try {
+                    intent = fileChooserParams != null ? fileChooserParams.createIntent() : new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("image/*");
+                    startActivityForResult(Intent.createChooser(intent, "Choose profile photo"), FILE_CHOOSER_REQUEST_CODE);
+                    return true;
+                } catch (Exception e) {
+                    fileChooserCallback = null;
+                    filePathCallback.onReceiveValue(null);
+                    runOnUiThread(() -> {
+                        if (webView != null) webView.evaluateJavascript(
+                            "window.onNativeProfilePhotoResult && window.onNativeProfilePhotoResult(" +
+                            JSONObject.quote("{\\"ok\\":false,\\"message\\":\\"No photo picker app available\\"}") + ");", null);
+                    });
+                    return false;
+                }
+            }
+        });
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
     }
@@ -732,6 +764,22 @@ public class MainActivity extends Activity {
         public void logout() {
             auth.signOut();
             sendResult(true, "Logged out", null);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            if (fileChooserCallback != null) {
+                Uri[] results = null;
+                if (resultCode == RESULT_OK && data != null) {
+                    Uri uri = data.getData();
+                    if (uri != null) results = new Uri[]{uri};
+                }
+                fileChooserCallback.onReceiveValue(results);
+                fileChooserCallback = null;
+            }
         }
     }
 
