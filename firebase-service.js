@@ -12,7 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, serverTimestamp, onSnapshot
+  query, where, orderBy, limit, serverTimestamp, onSnapshot, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -190,4 +190,83 @@ export async function uploadMedia(file, folder) {
   const objectRef = storageRef(storage, path);
   await uploadBytes(objectRef, file, { contentType: file.type });
   return getDownloadURL(objectRef);
+}
+
+
+// Follow request system: requests are private until the recipient accepts.
+// On acceptance, both users get a mutual connection (friend-like follow).
+export async function sendFollowRequest(targetUserId) {
+  const me = auth.currentUser;
+  if (!me) throw new Error("Sign in first.");
+  if (!targetUserId || targetUserId === me.uid) throw new Error("Choose another user.");
+  const target = await getDoc(doc(db, "users", targetUserId));
+  if (!target.exists()) throw new Error("That user does not exist.");
+  const requestId = `${me.uid}_${targetUserId}`;
+  const requestRef = doc(db, "followRequests", requestId);
+  const existing = await getDoc(requestRef);
+  if (existing.exists()) {
+    const status = existing.data().status;
+    if (status === "pending") throw new Error("Follow request already sent.");
+    if (status === "accepted") throw new Error("You are already connected.");
+    if (status === "rejected") throw new Error("This request was rejected; you cannot resend it yet.");
+  }
+  const reverse = await getDoc(doc(db, "followRequests", `${targetUserId}_${me.uid}`));
+  if (reverse.exists() && reverse.data().status === "pending") {
+    throw new Error("This user has already sent you a request. Accept it from Follow Requests.");
+  }
+  await setDoc(requestRef, {
+    fromUid: me.uid, toUid: targetUserId, status: "pending",
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+  return requestId;
+}
+
+export function subscribeToIncomingFollowRequests(callback) {
+  const me = auth.currentUser;
+  if (!me) throw new Error("Sign in first.");
+  return onSnapshot(query(collection(db, "followRequests"),
+    where("toUid", "==", me.uid), where("status", "==", "pending")),
+    snapshot => callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+}
+
+export function subscribeToOutgoingFollowRequests(callback) {
+  const me = auth.currentUser;
+  if (!me) throw new Error("Sign in first.");
+  return onSnapshot(query(collection(db, "followRequests"),
+    where("fromUid", "==", me.uid), where("status", "==", "pending")),
+    snapshot => callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+}
+
+export async function respondToFollowRequest(requestId, accept) {
+  const me = auth.currentUser;
+  if (!me) throw new Error("Sign in first.");
+  const requestRef = doc(db, "followRequests", requestId);
+  await runTransaction(db, async transaction => {
+    const snap = await transaction.get(requestRef);
+    if (!snap.exists()) throw new Error("Follow request no longer exists.");
+    const request = snap.data();
+    if (request.toUid !== me.uid) throw new Error("Only the recipient can respond.");
+    if (request.status !== "pending") throw new Error("This request has already been handled.");
+    transaction.update(requestRef, {
+      status: accept ? "accepted" : "rejected",
+      updatedAt: serverTimestamp()
+    });
+    if (accept) {
+      const outgoingRef = doc(db, "follows", `${request.fromUid}_${request.toUid}`);
+      const incomingRef = doc(db, "follows", `${request.toUid}_${request.fromUid}`);
+      transaction.set(outgoingRef, {
+        followerId: request.fromUid, followingId: request.toUid, createdAt: serverTimestamp()
+      });
+      transaction.set(incomingRef, {
+        followerId: request.toUid, followingId: request.fromUid, createdAt: serverTimestamp()
+      });
+    }
+  });
+}
+
+export function subscribeToMyConnections(callback) {
+  const me = auth.currentUser;
+  if (!me) throw new Error("Sign in first.");
+  return onSnapshot(query(collection(db, "follows"), where("followerId", "==", me.uid)),
+    snapshot => callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
 }
