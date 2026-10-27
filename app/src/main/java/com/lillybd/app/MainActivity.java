@@ -673,7 +673,7 @@ public class MainActivity extends Activity {
             try {
                 int comma = dataUrl.indexOf(',');
                 byte[] bytes = Base64.decode(comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl, Base64.DEFAULT);
-                StorageReference ref = com.google.firebase.storage.FirebaseStorage.getInstance().getReference().child(path);
+                StorageReference ref = com.google.firebase.storage.FirebaseStorage.getInstance("gs://lillybd-f499d.firebasestorage.app").getReference().child(path);
                 StorageMetadata metadata = new StorageMetadata.Builder().setContentType("image/jpeg").build();
                 ref.putBytes(bytes, metadata).continueWithTask(task -> {
                     if (!task.isSuccessful()) throw task.getException() != null ? task.getException() : new Exception("Upload failed");
