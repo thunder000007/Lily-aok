@@ -25,7 +25,7 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['blocked']))
         || (signedIn() && request.auth.uid == userId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'name', 'email', 'photoURL', 'updatedAt', 'bio', 'social'
+            'name', 'email', 'photoURL', 'updatedAt', 'bio', 'social', 'fcmTokens'
           ]));
       allow delete: if signedIn() && request.auth.uid == userId;
     }
